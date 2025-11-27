@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "simple-nginx.fullname" . }}-html
+  labels:
+    app: {{ include "simple-nginx.name" . }}
+data:
+  index.html: |
+    <html>
+      <head>
+        <title>Simple Nginx Webapp</title>
+      </head>
+      <body>
+        <h1>{{ .Values.customText }}</h1>
+      </body>
+    </html>

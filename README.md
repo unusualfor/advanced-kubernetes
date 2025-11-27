@@ -1,7 +1,4 @@
-
 # Advanced Kubernetes Class
-
-Welcome to the Advanced Kubernetes class! This course will help you master advanced Kubernetes concepts and tools, with hands-on labs and practical examples.
 
 ## Table of Contents
 1. Course Overview
@@ -12,6 +9,7 @@ Welcome to the Advanced Kubernetes class! This course will help you master advan
 6. Module 2: Multus
 7. Module 3: Telemetry
 8. Module 4: Istio
+	- Installing Kiali
 9. Resources
 10. Contributing
 
@@ -77,7 +75,7 @@ To get the most out of this class, you should have:
 1. Ensure you have administrative (sudo) access on your system
 2. Update your system packages to the latest versions
 3. Install a modern web browser for accessing dashboards
-4. (Optional) Set up a virtualization environment (e.g., VirtualBox, VMware, KVM) for isolated labs
+4. Set up a virtualization environment (e.g., VirtualBox, VMware, KVM) for isolated labs or spin up a WSL instance
 
 ---
 
@@ -97,6 +95,9 @@ k0s is a modern, lightweight Kubernetes distribution designed for simplicity and
 - Works well on laptops, VMs, and cloud instances
 - Great for learning, prototyping, and real-world deployments
 
+
+
+
 ---
 
 ## Environment Setup
@@ -109,6 +110,44 @@ Follow these steps to prepare your environment for the labs:
 - Red Hat/CentOS/Fedora
 - Windows 10/11 with WSL2
 
+### 2. Preparing Your System: Disabling Docker and Cleaning Up
+
+Before starting any Kubernetes work, it's important to ensure Docker is not running and to clean up any Docker-related artifacts (such as iptables rules) that may interfere with your cluster networking.
+
+#### Safely Disable Docker
+
+Stop the Docker service:
+```bash
+sudo systemctl stop docker
+sudo systemctl disable docker
+```
+Verify Docker is stopped:
+```bash
+sudo systemctl status docker
+```
+
+#### Clean Up Docker Artifacts
+
+Remove Docker iptables rules (if present):
+```bash
+# Flush Docker-related chains
+sudo iptables -F DOCKER || true
+sudo iptables -F DOCKER-USER || true
+sudo iptables -F FORWARD
+# Delete Docker chains
+sudo iptables -X DOCKER || true
+sudo iptables -X DOCKER-USER || true
+```
+
+Remove Docker network interfaces (if present):
+```bash
+for iface in docker0 br-*; do
+	sudo ip link delete "$iface" 2>/dev/null || true
+done
+```
+
+> **Note:** These steps are safe for most Linux systems. 
+
 ### 2. Install k0s (Kubernetes Distribution)
 A quick installation guide will be provided here. 
 Refer to the [official k0s documentation](https://docs.k0sproject.io/latest/) for advanced options.
@@ -118,6 +157,7 @@ Refer to the [official k0s documentation](https://docs.k0sproject.io/latest/) fo
 curl -sSL https://get.k0s.sh | sudo bash
 sudo k0s install controller --single
 sudo k0s start
+sudo mount --make-rshared /
 ```
 
 ### 3. Post-installation:
@@ -183,7 +223,6 @@ Helm is the package manager for Kubernetes. It simplifies the deployment and man
 
 ### Installing Helm
 Refer to the installation instructions below:
-**Manual install (all platforms):**
 ```bash
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | VERIFY_CHECKSUM=false bash
 ```
@@ -201,51 +240,57 @@ Helm charts can be created from scratch or downloaded from repositories. Common 
 - Uninstalling a release: `helm uninstall <release-name>`
 - Listing releases: `helm list`
 
-### Hands-on Labs & Exercises Skeleton
+### Exercise 1: Hands-on Helm 
 Below is a suggested structure for practical Helm exercises:
 
-#### Exercise 1: Install a Public Chart
-
-- Objective: Deploy nginx using a public Helm chart
+- Objective: Deploy a custom app using an Helm chart
 - Steps:
-  1. Add the official Helm repository:
+  1. Using the locally provided Helm chart we can install the custom nginx application:
 	  ```bash
-	  helm repo add helm https://helm.sh/helm-charts
-	  helm repo update
+	  cd helm/ 
+	  helm install ciao-app helm/ --set customText="ciao!" -n ciao-app --create-namespace
+	  cd ..
 	  ```
-  2. Install the nginx chart:
+  2. Install another version of the application:
 	  ```bash
-	  helm install my-nginx helm/nginx
+	  helm install hello-app helm/ --set customText="hello!" -n hello-app --create-namespace
 	  ```
   3. Verify deployment:
 	  ```bash
-	  kubectl get pods
-	  helm list
+	  kubectl get pods -n ciao-app
+	  kubectl get pods -n hello-app
+	  helm list -n ciao-app
+	  helm list -n hello-app
+
+	  ciaoIP=$(k get po -n ciao-app -o jsonpath="{.items[*].status.podIP}")
+
+	  curl $ciaoIP
+
+	  helloIP=$(k get po -n hello-app -o jsonpath="{.items[*].status.podIP}")
+
+	  curl $helloIP	  
 	  ```
 
-#### Exercise 2: Create a Custom Chart
-- Objective: Build and deploy a simple web app using a custom Helm chart
+#### Bonus: Modify the Custom Chart
+- Objective: Take the custom Helm chart and change the title of the webpage
 - Steps:
-	1. Create a new chart with `helm create`
-	2. Customize values and templates
-	3. Install and test the chart
+	1. Inside the helm folder there are all the files used to install the application
+	2. Customize the values available in values.yaml with a new parameter called *customPage*
+	3. Customize the templates/configmap.yaml by including the variable *customPage*
+	3. Install and test the chart with
+		```bash
+		helm install goodbye-app helm/ --set customPage="Goodbye!" --set customText="goodbye!" -n goodbye-app --create-namespace
+		```
 
-#### Exercise 3: Upgrade and Rollback
-- Objective: Practice upgrading and rolling back releases
-- Steps:
-	1. Change chart values and upgrade the release
-	2. Rollback to a previous version
-
-#### Exercise 4: Explore Chart Values
-- Objective: Use custom values to modify deployments
-- Steps:
-	1. Edit values.yaml or use `--set` flag
-	2. Observe changes in the cluster
-
-#### Exercise 5: Uninstall and Cleanup
+#### Uninstall and Cleanup
 - Objective: Remove releases and clean up resources
 - Steps:
 	1. Uninstall releases
+		```bash
+		helm uninstall -n ciao-app ciao-app
+		helm uninstall -n hello-app hello-app
+		helm uninstall -n goodbye-app goodbye-app
+		```
 	2. Verify resource removal
 
 ---
@@ -271,7 +316,6 @@ Refer to the [Multus GitHub repository](https://github.com/k8snetworkplumbingwg/
 
 **Quick install (recommended for labs):**
 ```bash
-sudo mount --make-rshared /
 kubectl apply -f https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/master/deployments/multus-daemonset.yml
 ```
 Verify installation:
@@ -285,6 +329,8 @@ kubectl get pods -n kube-system | grep multus
 
 ### Hands-on Labs & Exercises Skeleton
 Below is a suggested structure for practical Multus exercises:
+#### Module Summary & Next Steps
+You have learned how to configure multi-networking in Kubernetes using Multus. Next, set up telemetry and observability for your cluster.
 
 #### Exercise 1: Create a Secondary Network
 - Objective: Define a secondary network using NetworkAttachmentDefinition
@@ -347,6 +393,8 @@ helm list
 
 ### Hands-on Labs & Exercises Skeleton
 Below is a suggested structure for practical telemetry exercises:
+#### Module Summary & Next Steps
+You can now monitor and visualize your Kubernetes cluster using Prometheus and Grafana. Next, integrate Istio for advanced service mesh capabilities.
 
 #### Exercise 1: Access Dashboards
 - Objective: Access Grafana and import a Kubernetes dashboard
@@ -363,7 +411,7 @@ Below is a suggested structure for practical telemetry exercises:
 ## Module 4: Istio
 
 ### Introduction to Istio
-Istio is a popular open-source service mesh that provides advanced traffic management, security, and observability for microservices running in Kubernetes. It enables you to control, secure, and monitor service-to-service communication without modifying application code.
+Istio is a popular open-source service mesh that provides advanced traffic management, security, and observability for microservices running in Kubernetes. It enables you to control, secure, and monitor service-to-service communication without modifying application code. Kiali is an observability console for Istio, offering service mesh visualization, traffic flow analysis, and configuration validation.
 
 **Key Concepts:**
 - **Service Mesh:** Infrastructure layer for managing service-to-service communication
@@ -410,6 +458,8 @@ kubectl port-forward -n istio-system svc/kiali 20001:20001
 
 ### Hands-on Labs & Exercises Skeleton
 Below is a suggested structure for practical Istio exercises:
+#### Module Summary & Next Steps
+You have deployed Istio and Kiali, and explored traffic management, security, and observability. Continue learning by experimenting with custom policies and advanced mesh features.
 
 #### Exercise 1: Install Istio and Verify
 - Objective: Deploy Istio and confirm system components are running
@@ -585,3 +635,41 @@ Below is a suggested structure for practical Istio exercises:
 ---
 
 Feel free to suggest additional topics or improvements!
+
+## Resources
+
+### Official Documentation & Resources
+- [Kubernetes](https://kubernetes.io/docs/)
+- [k0s](https://docs.k0sproject.io/latest/)
+- [Helm](https://helm.sh/docs/)
+- [Multus](https://github.com/k8snetworkplumbingwg/multus-cni)
+- [Prometheus](https://prometheus.io/docs/introduction/overview/)
+- [Grafana](https://grafana.com/docs/)
+- [Istio](https://istio.io/latest/docs/)
+- [Kiali](https://kiali.io/)
+
+### Recommended Reading
+- [Kubernetes Patterns](https://www.oreilly.com/library/view/kubernetes-patterns/9781492050285/)
+- [Istio Up & Running](https://www.oreilly.com/library/view/istio-up-and/9781492043775/)
+
+### Community Forums
+- [Kubernetes Slack](https://slack.k8s.io/)
+- [Istio Discuss](https://discuss.istio.io/)
+- [Kiali Community](https://kiali.io/community/)
+
+---
+
+## Contributing
+
+### How to Contribute
+All contributions to improve this class material are welcome! You can:
+- Submit pull requests for corrections, enhancements, or new modules
+- Report issues or suggest improvements via GitHub Issues
+- Share feedback and ideas in the community forums
+
+### Reporting Issues
+If you find any errors or have suggestions, please open an issue in this repository or contact the maintainer.
+
+---
+
+Thank you for participating in the Advanced Kubernetes class. Continue exploring, experimenting, and contributing to the Kubernetes ecosystem!
