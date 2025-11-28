@@ -4,11 +4,11 @@
 1. [Course Overview](#course-overview)
 2. [Prerequisites](#prerequisites)
 3. [Kubernetes Distribution: k0s](#kubernetes-distribution-k0s)
-4. [Module 0: Environment Setup](#environment-setup)
+4. [Environment Setup](#environment-setup)
 5. [Module 1: Helm](#module-1-helm)
 6. [Module 2: Istio](#module-2-istio)
 7. [Module 3: Telemetry](#module-3-telemetry)
-8. [Module 4 (Bonus): Multus](#module-4-multus)
+8. [Module 4: Operators](#module-4-custom-operator-lab-hello-operator)
 9. [Assignment](#assignment-telemetry)
 10. [Resources](#resources)
 11. [Contributing](#contributing)
@@ -21,10 +21,11 @@ This class is designed for users who want to deepen their understanding of Kuber
 
 ### Objectives
 - Master advanced Kubernetes concepts and tools
-- Deploy and manage real-world workloads using Helm
-- Implement multi-networking with Multus
-- Set up telemetry and observability for clusters
-- Integrate and operate Istio as a service mesh
+- Deploy, manage, and customize applications using Helm and existing charts
+- Set up and extend telemetry and observability for clusters and applications
+- Integrate and operate Istio as a service mesh for traffic management and security
+- Work with operators to automate and extend cluster functionality
+- Analyze, visualize, and alert on application and infrastructure metrics using Prometheus and Grafana
 
 ### Learning Outcomes
 By the end of this course, you will be able to:
@@ -37,9 +38,9 @@ By the end of this course, you will be able to:
 ### Course Structure
 The course is divided into modules, each focusing on a key advanced concept:
 1. Helm
-2. Multus
-3. Telemetry
-4. Istio
+2. Istio
+3. Telemetry (Prometheus, Grafana)
+4. Operators
 
 Each module includes:
 - Conceptual overview
@@ -575,57 +576,65 @@ This workflow is essential for monitoring, troubleshooting, and optimizing produ
 
 ---
 
-## Module 4 (Bonus): Multus
+## Module 4: Custom Operator Lab (Hello Operator)
 
-### Introduction to Multus
-Multus is a Kubernetes Container Network Interface (CNI) plugin that enables attaching multiple network interfaces to pods. This allows advanced networking scenarios such as connecting pods to multiple networks, integrating with SDN solutions, and supporting NFV workloads.
+### Overview
+This module introduces Kubernetes operators by building and deploying a custom operator using Python and Kopf.
 
-**Key Concepts:**
-- **Primary CNI:** The default network for pods (e.g., flannel, calico)
-- **Secondary CNI:** Additional networks attached to pods via Multus
-- **NetworkAttachmentDefinition:** Custom resource defining additional networks
+#### What is the Hello Operator?
+The Hello operator is a simple, educational Kubernetes operator written in Python using the Kopf framework. 
 
-### Use Cases for Multi-Networking
-- Network isolation for workloads
-- Connecting pods to external networks (e.g., storage, monitoring)
-- Service chaining and network function virtualization (NFV)
-- Advanced SDN integrations
+It watches for custom resources of type `Hello` in your cluster. 
 
-### Installing Multus
-Refer to the [Multus GitHub repository](https://github.com/k8snetworkplumbingwg/multus-cni) for the latest installation instructions.
+When a `Hello` resource is created, updated, or deleted, the operator automatically reconciles the desired state by creating, updating, or removing a corresponding ConfigMap containing a personalized greeting message. The operator demonstrates:
+- How to react to Kubernetes resource events (create, update, delete)
+- How to implement reconciliation logic
+- How to use RBAC for secure operation
+- How to package and deploy an operator as a container with Helm
 
-**Quick install (recommended for labs):**
+This lab provides a hands-on introduction to the operator pattern and automation in Kubernetes.
+
+### Learning Objectives
+- Understand the operator pattern in Kubernetes
+- Deploy the operator as a container
+- Use Helm to install the operator and manage CRDs
+
+### Lab Steps
+
+#### 1. Install the Operator with Helm
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/master/deployments/multus-daemonset.yml
+helm install hello-operator operator/helm-hello-operator
 ```
-Verify installation:
+*This will also apply the CRD automatically.*
+
+#### 2. Create a Custom Resource
 ```bash
-kubectl get pods -n kube-system | grep multus
+kubectl apply -f operator/hello-francesco.yaml
 ```
 
-### Configuration
-- Define additional networks using `NetworkAttachmentDefinition` resources
-- Annotate pods to request multiple network interfaces
+#### 3. Verify Operator Pod and Functionality
+Check the operator pod:
+```bash
+kubectl get pods -l app=hello-operator
+kubectl logs $(kubectl get pods -l app=hello-operator -o jsonpath="{.items[0].metadata.name}")
+```
+Check the ConfigMap created by the operator:
+```bash
+kubectl get configmap hello-francesco -o yaml
+```
+Check the custom resource:
+```bash
+kubectl get hello
+```
 
-### Hands-on Labs & Exercises Skeleton
-Below is a suggested structure for practical Multus exercises:
-#### Module Summary & Next Steps
-You have learned how to configure multi-networking in Kubernetes using Multus. Next, set up telemetry and observability for your cluster.
+Try updating or deleting the Hello resource and observe reconciliation.
 
-#### Exercise 1: Create a Secondary Network
-- Objective: Define a secondary network using NetworkAttachmentDefinition
-- Steps:
-	1. Create a simple bridge or macvlan network definition
-	2. Verify the resource is created
-	3. Annotate pod spec to use both primary and secondary networks
-	4. Verify pod network interfaces
-
-#### Exercise 2: Attach Multiple Networks to a Pod
-- Objective: Deploy a second pod with the same multiple network interfaces
-- Steps:
-	1. Annotate pod spec to use both primary and secondary networks
-	2. Verify pod network interfaces
-    3. Verify connectivity between pods
+#### 4. Clean Up
+To remove the operator and all resources:
+```bash
+helm uninstall hello-operator
+kubectl delete crd hellos.unusualfor.com
+```
 
 ---
 
