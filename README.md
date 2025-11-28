@@ -214,7 +214,6 @@ Helm is the package manager for Kubernetes. It simplifies the deployment and man
 ### Installing Helm
 Refer to the installation instructions below:
 ```bash
-#curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | VERIFY_CHECKSUM=false bash
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4 | VERIFY_CHECKSUM=false bash
 ```
 
@@ -450,7 +449,8 @@ Istio empowers telco operators to deliver secure, observable, and adaptable netw
 ## Module 3: Telemetry
 
 ### Introduction to Telemetry in Kubernetes
-Telemetry refers to the collection, processing, and visualization of metrics, logs, and traces from your Kubernetes cluster. It is essential for monitoring cluster health, troubleshooting issues, and optimizing performance.
+Telemetry refers to the collection, processing, and visualization of metrics, logs, and traces from the applications. It becomes essential in Kubernetes clusters, where microservices are generally deployed. 
+It is overall fundamental for monitoring cluster health, troubleshooting issues, and optimizing performance.
 
 **Key Concepts:**
 - **Metrics:** Quantitative data about resource usage and application performance (e.g., CPU, memory, request rates)
@@ -461,10 +461,12 @@ Telemetry refers to the collection, processing, and visualization of metrics, lo
 ### Common Tools
 - **Prometheus:** Metrics collection and storage
 - **Grafana:** Visualization and dashboarding
-- **Loki:** Log aggregation (optional)
-- **Jaeger/Tempo:** Distributed tracing (optional)
+- **Loki:** Log aggregation 
+- **Jaeger/Tempo:** Distributed tracing 
 
-### Installing Prometheus and Grafana
+### Exercise 1: Installing Prometheus and Grafana
+We already installed Prometheus and Grafana when working with [Istio and Kiali](#module-2-istio). However now, we will install it officially through Helm, as if we were on a production environment.
+
 Refer to the official documentation for advanced options.
 
 **Quick install using Helm:**
@@ -475,39 +477,101 @@ helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 
 # Install Prometheus
-helm install prometheus prometheus-community/prometheus
+helm install prometheus prometheus-community/prometheus --set server.persistentVolume.enabled=false --set server.service.nodePort=30303 --set server.service.type=NodePort
 
 # Install Grafana
-helm install grafana grafana/grafana --set adminPassword=admin
+helm install grafana grafana/grafana --set adminPassword=admin 
 ```
+
 Verify installation:
 ```bash
 kubectl get pods
 helm list
 ```
-### Setting Up Telemetry in Kubernetes
-- Expose Prometheus and Grafana services for temporary access (e.g., via NodePort or port-forward)
-    ```bash
+
+Retrieve how to access Prometheus and Grafana services:
+```bash
+#Get the Prometheus server URL by running these commands in the same shell:
+  export NODE_PORT=$(kubectl get --namespace default -o jsonpath="{.spec.ports[0].nodePort}" services prometheus-server)
+  export NODE_IP=$(kubectl get nodes --namespace default -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "Prometheus UI: http://$NODE_IP:$NODE_PORT"
+
+#Get the Grafana URL to visit by running these commands in the same shell:
+  export NODE_PORT=$(kubectl get --namespace default -o jsonpath="{.spec.ports[0].nodePort}" services grafana)
+  export NODE_IP=$(kubectl get nodes --namespace default -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "Grafana UI: http://$NODE_IP:$NODE_PORT"
+```
+
+### Exercise 2: Setting Up Telemetry in Grafana
+- Objective: Configure Prometheus to collect metrics from your Kubernetes cluster and visualize them in Grafana using ready-made dashboards.
+- Steps:
+	1. Prerequisites
+		- Prometheus and Grafana are installed (see [Module 2](#module-2-istio)).
+		- You have access to your cluster via `kubectl` (see [Kubernetes Distribution: k0s](#kubernetes-distribution-k0s)).
+		- Helm is installed and configured (see [Module 1](#module-1-helm)).
+
+	2. Ensure Prometheus Is Scraping Cluster Metrics
+		Prometheus should be configured to scrape metrics from Kubernetes components. If you installed Prometheus using the official Helm chart (i.e. the instructions in [Exercise 1](#exercise-1-installing-prometheus-and-grafana)), default scrape configs are included.
+
+	3. Access Prometheus and Grafana UIs
+
+	```bash
+		#Get the Prometheus server URL by running these commands in the same shell:
+		  export NODE_PORT=$(kubectl get --namespace default -o jsonpath="{.spec.ports[0].nodePort}" services prometheus-server)
+		  export NODE_IP=$(kubectl get nodes --namespace default -o jsonpath="{.items[0].status.addresses[0].address}")
+		  echo "Prometheus UI: http://$NODE_IP:$NODE_PORT"
+
+		#Get the Grafana URL to visit by running these commands in the same shell:
+		  export NODE_PORT=$(kubectl get --namespace default -o jsonpath="{.spec.ports[0].nodePort}" services grafana)
+		  export NODE_IP=$(kubectl get nodes --namespace default -o jsonpath="{.items[0].status.addresses[0].address}")
+		  echo "Grafana UI: http://$NODE_IP:$NODE_PORT"
 	```
-- Configure Prometheus to scrape metrics from cluster components
-- Import dashboards in Grafana for Kubernetes monitoring
 
-### Hands-on Labs & Exercises Skeleton
-Below is a suggested structure for practical telemetry exercises:
-#### Module Summary & Next Steps
-You can now monitor and visualize your Kubernetes cluster using Prometheus and Grafana. Next, integrate Istio for advanced service mesh capabilities.
+	Open the Grafana URL address provided in your browser.
+	- Default login: `admin` / `admin` (unless changed during install)
 
-#### Exercise 1: Access Dashboards
-- Objective: Access Grafana and import a Kubernetes dashboard
-- Steps:
-	1. Port-forward Grafana service
-	2. Log in and import dashboard
+	4. Add Prometheus as a Data Source in Grafana
 
-#### Exercise 2: Custom Metrics
-- Objective: Expose custom application metrics to Prometheus
-- Steps:
-	1. Instrument a sample app
-	2. Verify metrics in Prometheus
+		* In Grafana, go to **Settings → Data Sources → Add data source**.
+		* Select **Prometheus**.
+		* Set the URL to the Prometheus URL address found above.
+		* Click **Save & Test**.
+
+	5. Import Kubernetes Monitoring Dashboards
+
+		Use ready-made dashboards for cluster and node monitoring.
+
+		**Kubernetes Cluster Monitoring Dashboard:**
+		- Dashboard ID: `6417`
+		- Source: https://grafana.com/grafana/dashboards/6417
+
+		**Node Exporter Full Dashboard:**
+		- Dashboard ID: `1860`
+		- Source: https://grafana.com/grafana/dashboards/1860
+
+		**To import:**
+		1. In Grafana, click **Dashboards → Import**.
+		2. Enter the dashboard ID (`6417` or `1860`) and click **Load**.
+		3. Select your Prometheus data source.
+		4. Click **Import**.
+
+		**It is now possible to visualize the dashboards and the metrics getting pulled.**
+
+	6. Explore Cluster Metrics
+		- Open the imported dashboards.
+		- Review metrics such as CPU, memory, pod status, and node health.
+		- Use filters and time ranges to analyze cluster performance.
+
+	7. Customize Dashboards
+
+		- Add panels for custom metrics.
+		- Set up alerts for critical conditions (e.g., high CPU).
+
+---
+
+**Recap:**  
+You have now set up telemetry in Grafana, visualizing real-time metrics from your Kubernetes cluster. 
+This workflow is essential for monitoring, troubleshooting, and optimizing production environments—especially in telco and cloud-native scenarios.
 
 ---
 
