@@ -478,7 +478,7 @@ helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 
 # Install Prometheus
-helm install prometheus prometheus-community/prometheus --set server.persistentVolume.enabled=false --set server.service.nodePort=30303 --set server.service.type=NodePort
+helm install prometheus prometheus-community/prometheus --set server.persistentVolume.enabled=false --set server.service.nodePort=30303 --set server.service.type=NodePort --set alertmanager.persistence.enabled=false
 
 # Install Grafana
 helm install grafana grafana/grafana --set adminPassword=admin 
@@ -564,7 +564,6 @@ Retrieve how to access Prometheus and Grafana services:
 		- Use filters and time ranges to analyze cluster performance.
 
 	7. Customize Dashboards
-
 		- Add panels for custom metrics.
 		- Set up alerts for critical conditions (e.g., high CPU).
 
@@ -638,99 +637,56 @@ kubectl delete crd hellos.unusualfor.com
 
 ---
 
-## Assignment: Telemetry 
+## Assignment: Telemetry
 
-- **Project 1: Cluster Resource Monitoring**
-	- Deploy Prometheus and Grafana
-	- Import a ready-made Kubernetes cluster dashboard in Grafana
-	- Observe CPU, memory, and pod usage over time
+Objective: Deploy a custom telemetry app, ensure Prometheus scrapes its metrics, and create a Grafana dashboard.
 
-##### Ready-made Dashboards & Resources
+Steps:
 
-- **Kubernetes Cluster Monitoring Dashboard**
-	- Grafana Dashboard ID: 6417
-	- Import from: https://grafana.com/grafana/dashboards/6417
-	- In Grafana: Go to Dashboards → Import, enter ID 6417, select Prometheus as data source.
-	
-	**Step-by-step Import Instructions:**
-	1. Port-forward Grafana to your local machine:
-	   ```bash
-	   kubectl port-forward svc/grafana 3000:80
-	   ```
-	2. Open your browser and go to http://localhost:3000
-	3. Log in (default user: admin, password: admin if not changed)
-	4. In the left menu, click "Dashboards" → "Import"
-	5. Enter dashboard ID `6417` and click "Load"
-	6. Select your Prometheus data source and click "Import"
+1. **Deploy the telemetry app using Helm in the assignment namespace:**
+   ```bash
+   helm upgrade --install assignment-app ./assignment/helm/ -n assignment --create-namespace
+   ```
+2. **Verify the app is running in the assignment namespace:**
+   ```bash
+   kubectl get pods -n assignment -l app=demo-app
+   kubectl get svc -n assignment demo-app
+   ```
+3. **Test metrics endpoint:**
+   - Retrieve the ClusterIP of the demo-app service:
+     ```bash
+     CLUSTER_IP=$(kubectl get svc -n assignment demo-app -o jsonpath='{.spec.clusterIP}')
+     ```
+   - Then, from any pod in the cluster (or using a tool like `kubectl run`), you can access the metrics endpoint:
+     ```bash
+     curl http://<CLUSTER_IP>:8000/metrics
+     ```
+   - You should see Prometheus metrics output.
 
-- **Node Exporter Full Dashboard**
-	- Grafana Dashboard ID: 1860
-	- Import from: https://grafana.com/grafana/dashboards/1860
-	- For node-level metrics.
-	
-	**Step-by-step Import Instructions:**
-	1. Repeat the steps above, but use dashboard ID `1860`.
+5. **Check Prometheus targets:**
+   - Prometheus is exposed via NodePort. Retrieve the Prometheus server URL:
+     ```bash
+     export NODE_PORT=$(kubectl get --namespace default -o jsonpath="{.spec.ports[0].nodePort}" services prometheus-server)
+     export NODE_IP=$(kubectl get nodes --namespace default -o jsonpath="{.items[0].status.addresses[0].address}")
+     echo "Prometheus UI: http://$NODE_IP:$NODE_PORT"
+     ```
+   - Query targets:
+     ```bash
+     curl http://$NODE_IP:$NODE_PORT/api/v1/targets | jq .
+     ```
+   - Confirm your app appears in `activeTargets` and is `up`.
+7. **Build a dashboard in Grafana:**
+   - After confirming metrics are available, create a custom dashboard or panel in Grafana using the metrics exposed by your app (e.g., request count, latency, memory usage).
+   - Example tasks:
+     - Visualize request rate over time
+     - Show average or maximum latency
+     - Display current memory usage
+   - Use Prometheus as the data source and select your app's metrics for visualization.
 
-- **Prometheus Helm Chart**
-	- https://artifacthub.io/packages/helm/prometheus-community/prometheus
-	- Includes default scrape configs for Kubernetes.
-	
-	**Step-by-step Deployment:**
-	1. Add the Prometheus Helm repo:
-	   ```bash
-	   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-	   helm repo update
-	   ```
-	2. Install Prometheus:
-	   ```bash
-	   helm install prometheus prometheus-community/prometheus
-	   ```
-	3. Verify Prometheus pods:
-	   ```bash
-	   kubectl get pods
-	   helm list
-	   ```
-
-	**Automate Adding Prometheus as a Grafana Data Source:**
-
-	After installing Prometheus and Grafana, you can automate adding Prometheus as a data source in Grafana using the Grafana HTTP API:
-
-	1. Port-forward Grafana to your local machine:
-	   ```bash
-	   kubectl port-forward svc/grafana 3000:80
-	   ```
-	2. Port-forward Prometheus to your local machine:
-	   ```bash
-	   kubectl port-forward svc/prometheus-server 9090:9090
-	   ```
-	3. Add Prometheus as a data source in Grafana using a script:
-	   ```bash
-	   curl -X POST http://localhost:3000/api/datasources \
-	     -H "Content-Type: application/json" \
-	     -u admin:admin \
-	     -d '{
-	       "name":"Prometheus",
-	       "type":"prometheus",
-	       "url":"http://localhost:9090",
-	       "access":"proxy",
-	       "basicAuth":false
-	     }'
-	     # Change admin:admin if you set a different Grafana password.
-	   ```
-
-	This will automatically add Prometheus as a data source in Grafana, making dashboards ready to use.
-
-- **Prometheus Operator (Advanced Monitoring)**
-	- https://github.com/prometheus-operator/kube-prometheus
-	- For advanced monitoring and alerting setups.
-	
-	**Step-by-step Deployment:**
-	1. Follow the official guide: https://github.com/prometheus-operator/kube-prometheus#installing
-	2. Clone the repo and apply manifests as described for your environment.
-
-- **Project 2: Alerting Setup**
-	- Configure basic alerts in Prometheus (e.g., node down, high CPU)
-	- Trigger and acknowledge alerts
+### Clean Up
+```bash
+helm uninstall assignment-app -n assignment
+```
 
 ---
 
