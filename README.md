@@ -1,17 +1,17 @@
 # Advanced Kubernetes Class
 
 ## Table of Contents
-1. Course Overview
-2. Prerequisites
-3. Kubernetes Distribution: k0s
-4. Module 0: Environment Setup
-5. Module 1: Helm
-6. Module 2: Multus
-7. Module 3: Telemetry
-8. Module 4: Istio
-	- Installing Kiali
-9. Resources
-10. Contributing
+1. [Course Overview](#course-overview)
+2. [Prerequisites](#prerequisites)
+3. [Kubernetes Distribution: k0s](#kubernetes-distribution-k0s)
+4. [Module 0: Environment Setup](#environment-setup)
+5. [Module 1: Helm](#module-1-helm)
+6. [Module 2: Istio](#module-2-istio)
+7. [Module 3: Telemetry](#module-3-telemetry)
+8. [Module 4 (Bonus): Multus](#module-4-multus)
+9. [Assignment](#assignment-telemetry)
+10. [Resources](#resources)
+11. [Contributing](#contributing)
 
 ---
 
@@ -95,9 +95,6 @@ k0s is a modern, lightweight Kubernetes distribution designed for simplicity and
 - Works well on laptops, VMs, and cloud instances
 - Great for learning, prototyping, and real-world deployments
 
-
-
-
 ---
 
 ## Environment Setup
@@ -128,7 +125,7 @@ sudo systemctl status docker
 
 #### Clean Up Docker Artifacts
 
-Remove Docker iptables rules (if present):
+As an alternative to restarting the Linux system (e.g. restart the Linux system or *wsl ---shutdown* for WSL2), we can remove Docker iptables rules (if present):
 ```bash
 # Flush Docker-related chains
 sudo iptables -F DOCKER || true
@@ -137,13 +134,6 @@ sudo iptables -F FORWARD
 # Delete Docker chains
 sudo iptables -X DOCKER || true
 sudo iptables -X DOCKER-USER || true
-```
-
-Remove Docker network interfaces (if present):
-```bash
-for iface in docker0 br-*; do
-	sudo ip link delete "$iface" 2>/dev/null || true
-done
 ```
 
 > **Note:** These steps are safe for most Linux systems. 
@@ -295,120 +285,28 @@ Below is a suggested structure for practical Helm exercises:
 
 ---
 
-## Module 2: Multus
+### Helm Recap: Why Helm Is Essential
 
-### Introduction to Multus
-Multus is a Kubernetes Container Network Interface (CNI) plugin that enables attaching multiple network interfaces to pods. This allows advanced networking scenarios such as connecting pods to multiple networks, integrating with SDN solutions, and supporting NFV workloads.
+Helm is a powerful tool for Kubernetes application deployment and management. It allows you to:
+- Package complex applications as reusable charts
+- Parameterize deployments for different environments and use cases
+- Upgrade, rollback, and manage releases with ease
+- Share and reuse application definitions across teams
 
-**Key Concepts:**
-- **Primary CNI:** The default network for pods (e.g., flannel, calico)
-- **Secondary CNI:** Additional networks attached to pods via Multus
-- **NetworkAttachmentDefinition:** Custom resource defining additional networks
+**General Kubernetes Usefulness:**
+Helm simplifies the deployment of any Kubernetes app, making it easy to customize, replicate, and maintain applications at scale. It is the de facto standard for managing Kubernetes workloads in production.
 
-### Use Cases for Multi-Networking
-- Network isolation for workloads
-- Connecting pods to external networks (e.g., storage, monitoring)
-- Service chaining and network function virtualization (NFV)
-- Advanced SDN integrations
+**Telco Environment Example:**
+In telecommunications (telco) environments, Helm is especially valuable. For example, a single Helm chart ("recipe") for a 5G RAN Central Unit (CU) can deploy either a CU-Control Plane (CU-CP) or a CU-User Plane (CU-UP) simply by setting different parameters. This flexibility enables:
+- Rapid adaptation to different network functions
+- Consistent deployment practices for complex, multi-component systems
+- Easier automation and lifecycle management for NFV and SDN workloads
 
-### Installing Multus
-Refer to the [Multus GitHub repository](https://github.com/k8snetworkplumbingwg/multus-cni) for the latest installation instructions.
+*Helm empowers both developers and operators to deliver reliable, repeatable, and customizable Kubernetes deployments—whether for web apps, microservices, or advanced telco workloads.*
 
-**Quick install (recommended for labs):**
-```bash
-kubectl apply -f https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/master/deployments/multus-daemonset.yml
-```
-Verify installation:
-```bash
-kubectl get pods -n kube-system | grep multus
-```
+---
 
-### Configuration
-- Define additional networks using `NetworkAttachmentDefinition` resources
-- Annotate pods to request multiple network interfaces
-
-### Hands-on Labs & Exercises Skeleton
-Below is a suggested structure for practical Multus exercises:
-#### Module Summary & Next Steps
-You have learned how to configure multi-networking in Kubernetes using Multus. Next, set up telemetry and observability for your cluster.
-
-#### Exercise 1: Create a Secondary Network
-- Objective: Define a secondary network using NetworkAttachmentDefinition
-- Steps:
-	1. Create a simple bridge or macvlan network definition
-	2. Verify the resource is created
-	3. Annotate pod spec to use both primary and secondary networks
-	4. Verify pod network interfaces
-
-#### Exercise 2: Attach Multiple Networks to a Pod
-- Objective: Deploy a second pod with the same multiple network interfaces
-- Steps:
-	1. Annotate pod spec to use both primary and secondary networks
-	2. Verify pod network interfaces
-    3. Verify connectivity between pods
-
-## Module 3: Telemetry
-
-### Introduction to Telemetry in Kubernetes
-Telemetry refers to the collection, processing, and visualization of metrics, logs, and traces from your Kubernetes cluster. It is essential for monitoring cluster health, troubleshooting issues, and optimizing performance.
-
-**Key Concepts:**
-- **Metrics:** Quantitative data about resource usage and application performance (e.g., CPU, memory, request rates)
-- **Logs:** Textual records of events and errors from containers and system components
-- **Traces:** Distributed request flows across microservices
-- **Dashboards:** Visualizations of metrics and logs for quick insights
-
-### Common Tools
-- **Prometheus:** Metrics collection and storage
-- **Grafana:** Visualization and dashboarding
-- **Loki:** Log aggregation (optional)
-- **Jaeger/Tempo:** Distributed tracing (optional)
-
-### Installing Prometheus and Grafana
-Refer to the official documentation for advanced options.
-
-**Quick install using Helm:**
-```bash
-# Add the official Helm repository
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo add grafana https://grafana.github.io/helm-charts
-helm repo update
-
-# Install Prometheus
-helm install prometheus prometheus-community/prometheus
-
-# Install Grafana
-helm install grafana grafana/grafana --set adminPassword=admin
-```
-Verify installation:
-```bash
-kubectl get pods
-helm list
-```
-### Setting Up Telemetry in Kubernetes
-- Expose Prometheus and Grafana services for temporary access (e.g., via NodePort or port-forward)
-    ```bash
-- Configure Prometheus to scrape metrics from cluster components
-- Import dashboards in Grafana for Kubernetes monitoring
-
-### Hands-on Labs & Exercises Skeleton
-Below is a suggested structure for practical telemetry exercises:
-#### Module Summary & Next Steps
-You can now monitor and visualize your Kubernetes cluster using Prometheus and Grafana. Next, integrate Istio for advanced service mesh capabilities.
-
-#### Exercise 1: Access Dashboards
-- Objective: Access Grafana and import a Kubernetes dashboard
-- Steps:
-	1. Port-forward Grafana service
-	2. Log in and import dashboard
-
-#### Exercise 2: Custom Metrics
-- Objective: Expose custom application metrics to Prometheus
-- Steps:
-	1. Instrument a sample app
-	2. Verify metrics in Prometheus
-
-## Module 4: Istio
+## Module 2: Istio
 
 ### Introduction to Istio
 Istio is a popular open-source service mesh that provides advanced traffic management, security, and observability for microservices running in Kubernetes. It enables you to control, secure, and monitor service-to-service communication without modifying application code. Kiali is an observability console for Istio, offering service mesh visualization, traffic flow analysis, and configuration validation.
@@ -527,18 +425,126 @@ You have deployed Istio and Kiali, and explored traffic management, security, an
 		# Kiali: http://localhost:20001
 		```
 
-## Resources
-- Official documentation links
-- Recommended reading
-- Community forums
+---
 
-## Contributing
-- How to contribute to this class material
-- Reporting issues and suggesting improvements
+## Module 3: Telemetry
+
+### Introduction to Telemetry in Kubernetes
+Telemetry refers to the collection, processing, and visualization of metrics, logs, and traces from your Kubernetes cluster. It is essential for monitoring cluster health, troubleshooting issues, and optimizing performance.
+
+**Key Concepts:**
+- **Metrics:** Quantitative data about resource usage and application performance (e.g., CPU, memory, request rates)
+- **Logs:** Textual records of events and errors from containers and system components
+- **Traces:** Distributed request flows across microservices
+- **Dashboards:** Visualizations of metrics and logs for quick insights
+
+### Common Tools
+- **Prometheus:** Metrics collection and storage
+- **Grafana:** Visualization and dashboarding
+- **Loki:** Log aggregation (optional)
+- **Jaeger/Tempo:** Distributed tracing (optional)
+
+### Installing Prometheus and Grafana
+Refer to the official documentation for advanced options.
+
+**Quick install using Helm:**
+```bash
+# Add the official Helm repository
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo update
+
+# Install Prometheus
+helm install prometheus prometheus-community/prometheus
+
+# Install Grafana
+helm install grafana grafana/grafana --set adminPassword=admin
+```
+Verify installation:
+```bash
+kubectl get pods
+helm list
+```
+### Setting Up Telemetry in Kubernetes
+- Expose Prometheus and Grafana services for temporary access (e.g., via NodePort or port-forward)
+    ```bash
+- Configure Prometheus to scrape metrics from cluster components
+- Import dashboards in Grafana for Kubernetes monitoring
+
+### Hands-on Labs & Exercises Skeleton
+Below is a suggested structure for practical telemetry exercises:
+#### Module Summary & Next Steps
+You can now monitor and visualize your Kubernetes cluster using Prometheus and Grafana. Next, integrate Istio for advanced service mesh capabilities.
+
+#### Exercise 1: Access Dashboards
+- Objective: Access Grafana and import a Kubernetes dashboard
+- Steps:
+	1. Port-forward Grafana service
+	2. Log in and import dashboard
+
+#### Exercise 2: Custom Metrics
+- Objective: Expose custom application metrics to Prometheus
+- Steps:
+	1. Instrument a sample app
+	2. Verify metrics in Prometheus
 
 ---
 
-#### Simple Telemetry Projects (No Development Required)
+## Module 4 (Bonus): Multus
+
+### Introduction to Multus
+Multus is a Kubernetes Container Network Interface (CNI) plugin that enables attaching multiple network interfaces to pods. This allows advanced networking scenarios such as connecting pods to multiple networks, integrating with SDN solutions, and supporting NFV workloads.
+
+**Key Concepts:**
+- **Primary CNI:** The default network for pods (e.g., flannel, calico)
+- **Secondary CNI:** Additional networks attached to pods via Multus
+- **NetworkAttachmentDefinition:** Custom resource defining additional networks
+
+### Use Cases for Multi-Networking
+- Network isolation for workloads
+- Connecting pods to external networks (e.g., storage, monitoring)
+- Service chaining and network function virtualization (NFV)
+- Advanced SDN integrations
+
+### Installing Multus
+Refer to the [Multus GitHub repository](https://github.com/k8snetworkplumbingwg/multus-cni) for the latest installation instructions.
+
+**Quick install (recommended for labs):**
+```bash
+kubectl apply -f https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/master/deployments/multus-daemonset.yml
+```
+Verify installation:
+```bash
+kubectl get pods -n kube-system | grep multus
+```
+
+### Configuration
+- Define additional networks using `NetworkAttachmentDefinition` resources
+- Annotate pods to request multiple network interfaces
+
+### Hands-on Labs & Exercises Skeleton
+Below is a suggested structure for practical Multus exercises:
+#### Module Summary & Next Steps
+You have learned how to configure multi-networking in Kubernetes using Multus. Next, set up telemetry and observability for your cluster.
+
+#### Exercise 1: Create a Secondary Network
+- Objective: Define a secondary network using NetworkAttachmentDefinition
+- Steps:
+	1. Create a simple bridge or macvlan network definition
+	2. Verify the resource is created
+	3. Annotate pod spec to use both primary and secondary networks
+	4. Verify pod network interfaces
+
+#### Exercise 2: Attach Multiple Networks to a Pod
+- Objective: Deploy a second pod with the same multiple network interfaces
+- Steps:
+	1. Annotate pod spec to use both primary and secondary networks
+	2. Verify pod network interfaces
+    3. Verify connectivity between pods
+
+---
+
+## Assignment: Telemetry 
 
 - **Project 1: Cluster Resource Monitoring**
 	- Deploy Prometheus and Grafana
@@ -615,8 +621,8 @@ You have deployed Istio and Kiali, and explored traffic management, security, an
 	       "access":"proxy",
 	       "basicAuth":false
 	     }'
+	     # Change admin:admin if you set a different Grafana password.
 	   ```
-	   # Change admin:admin if you set a different Grafana password.
 
 	This will automatically add Prometheus as a data source in Grafana, making dashboards ready to use.
 
