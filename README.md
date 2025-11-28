@@ -157,7 +157,7 @@ sudo mount --make-rshared /
 	```
 - Check cluster status:
 	```bash
-	k0s status
+	sudo k0s status
 	```
 
 ### 4. kubectl Installation
@@ -314,113 +314,136 @@ Istio is a popular open-source service mesh that provides advanced traffic manag
 - **Control Plane:** Manages configuration and policies (Istiod)
 - **Data Plane:** Handles actual traffic between services (Envoy)
 
-### Installing Istio
-Refer to the [Istio documentation](https://istio.io/latest/docs/setup/) for advanced options.
-
-**Quick install (recommended for labs):**
-```bash
-curl -L https://istio.io/downloadIstio | sh -
-cd istio-*
-export PATH="$PWD/bin:$PATH"
-istioctl install --set profile=minimal -y
-```
-Verify installation:
-```bash
-kubectl get pods -n istio-system
-```
-
-### Installing Kiali
-Kiali is an observability console for Istio service mesh, providing service graph, traffic flow, and configuration validation.
-
-**Quick install (recommended for labs):**
-```bash
-kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.18/samples/addons/kiali.yaml
-```
-Verify installation:
-```bash
-kubectl get pods -n istio-system | grep kiali
-```
-Access Kiali dashboard:
-```bash
-kubectl port-forward -n istio-system svc/kiali 20001:20001
-# Then open http://localhost:20001 in your browser
-```
-
 ### Traffic Management, Security, and Observability
 - **Traffic Management:** Control routing, load balancing, and traffic splitting
 - **Security:** Mutual TLS, authentication, and authorization between services
 - **Observability:** Telemetry, tracing, and monitoring of service interactions
 
-### Hands-on Labs & Exercises Skeleton
-Below is a suggested structure for practical Istio exercises:
-#### Module Summary & Next Steps
-You have deployed Istio and Kiali, and explored traffic management, security, and observability. Continue learning by experimenting with custom policies and advanced mesh features.
-
 #### Exercise 1: Install Istio and Verify
 - Objective: Deploy Istio and confirm system components are running
 - Steps:
-	1. Install Istio using istioctl
-	2. Check pods in istio-system namespace
+	1. It is possible to install istio through Helm chart or *istioctl*, which is a utility developed by the community for in-depth evaluation.
+	We will focus on istioctl for its simplified approach.
 
+		**Quick install (recommended for labs):**
 		```bash
-		curl -L https://istio.io/downloadIstio | sh -
-		cd istio-*
-		export PATH="$PWD/bin:$PATH"
-		istioctl install --set profile=demo -y
+		curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.28.0 sh -
+		export PATH="$PWD/istio-1.28.0/bin:$PATH"
+		istioctl install --set profile=minimal -y
+		```
+		Verify installation:
+		```bash
 		kubectl get pods -n istio-system
 		```
+
+		Refer to the [Istio documentation](https://istio.io/latest/docs/setup/) for advanced options.
+
+	2. Kiali is an observability console for Istio service mesh, providing service graph, traffic flow, and configuration validation.
+	By default Kiali requires additional Telemetry tools such as Prometheus and Grafana to display data in its UI.
+
+		**Quick install (recommended for labs):**
+		```bash
+		kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.28/samples/addons/kiali.yaml
+		kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.28/samples/addons/prometheus.yaml
+		kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.28/samples/addons/grafana.yaml
+		```
+		Verify installation:
+		```bash
+		kubectl get pods -n istio-system -w 
+		```
+	3. You can now access Kiali dashboard:
+		```bash
+		kubectl port-forward -n istio-system svc/kiali 20001:20001
+		```
+		Kiali is now accessible temporarily in your browser at http://localhost:20001 
+
+		You can navigate through the UI, but at this point you will not see anything of interest in terms of Istio.
 
 #### Exercise 2: Deploy Sample Application
 - Objective: Deploy a sample app with Istio sidecars injected
 - Steps:
 	1. Label the namespace for automatic sidecar injection
-	2. Deploy the sample app
-	3. Verify sidecar proxies are running
-
 		```bash
 		kubectl create namespace demo
 		kubectl label namespace demo istio-injection=enabled
-		kubectl apply -n demo -f https://raw.githubusercontent.com/istio/istio/release-1.18/samples/helloworld/helloworld.yaml
-		kubectl get pods -n demo
-		kubectl describe pod <pod-name> | grep istio-proxy
 		```
+	2. Deploy the sample app
+		```bash
+		kubectl apply -n demo -f https://raw.githubusercontent.com/istio/istio/release-1.28/samples/helloworld/helloworld.yaml
+		kubectl get pods -n demo
+		```
+	3. Verify sidecar proxies are running both in CLI 
+		```bash
+		kubectl get pods -n demo # Copy the name of the pod you prefer to inspect
+		kubectl describe pod <pod-name> | grep istio-proxy # Substitute <pod-name> with the name of the pod from the previous command
+		```
+		In the Kiali UI you will start seeing the application by looking at the different tabs, e.g. Applications.
+
+		In the Traffic Graph tab, select the "*demo*" namespace. 
+		The application is not yet generating any traffic, so let's generate some!
+	
+	4. Generate sample traffic and watch Kiali UI getting populated
+		```bash
+		istio/helloworld-traffic.sh
+		```
+		Kiali UI will now show the ongoing traffic. 
 
 #### Exercise 3: Security
 - Objective: Enable mutual TLS between services
 - Steps:
 	1. Apply Istio PeerAuthentication policy
-	2. Verify encrypted communication
-
 		```bash
-		kubectl apply -n demo -f - <<EOF
-		apiVersion: security.istio.io/v1beta1
-		kind: PeerAuthentication
-		metadata:
-			name: default
-			namespace: demo
-		spec:
-			mtls:
-				mode: STRICT
-		EOF
-		# Check for mTLS in Grafana/Kiali or with istioctl authn tls-check
-		istioctl authn tls-check <pod-name>.demo
+		kubectl apply -f istio/mtls.yaml
 		```
+	2. Restart the helloworld application and generate some traffic between the components as before.
+		```bash
+		kubectl rollout restart deployment -n demo helloworld-v1 helloworld-v2
+		istio/helloworld-traffic.sh
+		```
+	3. Verify encrypted communication in the Kiali UI. 
+	In the Traffic Graph, select Display menu and click on Badges/Security.
+	You will now notice that a Lock is displayed on the links, meaning that mTLS is in place.
 
-#### Exercise 4: Observability
-- Objective: Monitor service interactions with Istio telemetry
+#### Exercise 4: Complex application traces
+- Objective: Deploy another sample application composed by multiple microservices
 - Steps:
-	1. Access built-in dashboards (Grafana, Kiali, Jaeger)
-	2. Visualize traffic and traces
-
+	1. Install the sample application
 		```bash
-		# Port-forward Grafana
-		kubectl port-forward -n istio-system svc/grafana 3000:3000
-		# Port-forward Kiali
-		kubectl port-forward -n istio-system svc/kiali 20001:20001
-		# Access dashboards in your browser
-		# Grafana: http://localhost:3000
-		# Kiali: http://localhost:20001
+		kubectl create namespace travel-agency
+		kubectl create namespace travel-portal
+		kubectl create namespace travel-control
+
+		kubectl label namespace travel-agency istio-injection=enabled
+		kubectl label namespace travel-portal istio-injection=enabled
+		kubectl label namespace travel-control istio-injection=enabled
+
+		kubectl apply -f <(curl -L https://raw.githubusercontent.com/kiali/demos/master/travels/travel_agency.yaml) -n travel-agency
+		kubectl apply -f <(curl -L https://raw.githubusercontent.com/kiali/demos/master/travels/travel_portal.yaml) -n travel-portal
+		kubectl apply -f <(curl -L https://raw.githubusercontent.com/kiali/demos/master/travels/travel_control.yaml) -n travel-control
 		```
+	2. Visualize traffic and traces in the Kiali UI
+
+---
+
+### Istio Recap: Why Istio Is Important
+
+Istio is a powerful service mesh for Kubernetes, providing advanced traffic management, security, and observability. It enables:
+- Fine-grained control over service-to-service communication
+- Secure connections with mutual TLS and policy enforcement
+- Deep visibility into microservice interactions and performance
+- Resilient traffic routing, load balancing, and fault injection
+
+**General Kubernetes Usefulness:**
+Istio makes it easy to manage complex microservice architectures, enforce security policies, and gain insights into application behavior. It is widely adopted for production-grade Kubernetes environments where reliability, security, and observability are critical.
+
+**Telco Environment Example:**
+In telecommunications (telco) environments, Istio is especially valuable for:
+- Managing network functions O&M networks with strict security and traffic requirements
+- Enabling service chaining and dynamic routing
+- Providing end-to-end encryption and authentication between network components
+- Supporting multi-tenant, multi-network scenarios with policy-driven control
+
+Istio empowers telco operators to deliver secure, observable, and adaptable network services, making it a key technology for cloud-native NFV, SDN, and 5G deployments.
 
 ---
 
@@ -465,6 +488,7 @@ helm list
 ### Setting Up Telemetry in Kubernetes
 - Expose Prometheus and Grafana services for temporary access (e.g., via NodePort or port-forward)
     ```bash
+	```
 - Configure Prometheus to scrape metrics from cluster components
 - Import dashboards in Grafana for Kubernetes monitoring
 
