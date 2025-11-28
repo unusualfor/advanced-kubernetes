@@ -214,7 +214,8 @@ Helm is the package manager for Kubernetes. It simplifies the deployment and man
 ### Installing Helm
 Refer to the installation instructions below:
 ```bash
-curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | VERIFY_CHECKSUM=false bash
+#curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | VERIFY_CHECKSUM=false bash
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4 | VERIFY_CHECKSUM=false bash
 ```
 
 After installation, verify with:
@@ -222,7 +223,7 @@ After installation, verify with:
 helm version
 ```
 
-### Creating and Managing Charts
+### Helm 3 Reference Commands 
 Helm charts can be created from scratch or downloaded from repositories. Common operations include:
 - Creating a new chart: `helm create <chart-name>`
 - Installing a chart: `helm install <release-name> <chart>`
@@ -237,9 +238,7 @@ Below is a suggested structure for practical Helm exercises:
 - Steps:
   1. Using the locally provided Helm chart we can install the custom nginx application:
 	  ```bash
-	  cd helm/ 
 	  helm install ciao-app helm/ --set customText="ciao!" -n ciao-app --create-namespace
-	  cd ..
 	  ```
   2. Install another version of the application:
 	  ```bash
@@ -252,12 +251,10 @@ Below is a suggested structure for practical Helm exercises:
 	  helm list -n ciao-app
 	  helm list -n hello-app
 
-	  ciaoIP=$(k get po -n ciao-app -o jsonpath="{.items[*].status.podIP}")
-
+	  ciaoIP=$(kubectl get po -n ciao-app -o jsonpath="{.items[*].status.podIP}")
 	  curl $ciaoIP
 
-	  helloIP=$(k get po -n hello-app -o jsonpath="{.items[*].status.podIP}")
-
+	  helloIP=$(kubectl get po -n hello-app -o jsonpath="{.items[*].status.podIP}")
 	  curl $helloIP	  
 	  ```
 

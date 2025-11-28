@@ -1,5 +1,5 @@
 {{- define "simple-nginx.name" -}}
-simple-nginx
+{{ .Release.Name }}
 {{- end -}}
 
 {{- define "simple-nginx.fullname" -}}
