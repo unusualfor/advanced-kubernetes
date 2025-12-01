@@ -30,10 +30,9 @@ This class is designed for users who want to deepen their understanding of Kuber
 ### Learning Outcomes
 By the end of this course, you will be able to:
 - Use Helm to package, deploy, and manage applications
-- Configure Multus for multi-network support in Kubernetes
+- Deploy a Kubernetes operator and handle its custom resources to actionate its reconciliation loop 
 - Monitor and observe clusters using telemetry tools (Prometheus, Grafana)
 - Deploy and manage Istio for traffic management, security, and observability
-- Work confidently with k0s on major Linux distributions and WSL2
 
 ### Course Structure
 The course is divided into modules, each focusing on a key advanced concept:
@@ -698,7 +697,6 @@ Feel free to suggest additional topics or improvements!
 - [Kubernetes](https://kubernetes.io/docs/)
 - [k0s](https://docs.k0sproject.io/latest/)
 - [Helm](https://helm.sh/docs/)
-- [Multus](https://github.com/k8snetworkplumbingwg/multus-cni)
 - [Prometheus](https://prometheus.io/docs/introduction/overview/)
 - [Grafana](https://grafana.com/docs/)
 - [Istio](https://istio.io/latest/docs/)
