@@ -450,7 +450,7 @@ In telecommunications (telco) environments, Istio is especially valuable for:
 - Providing end-to-end encryption and authentication between network components
 - Supporting multi-tenant, multi-network scenarios with policy-driven control
 
-Istio empowers telco operators to deliver secure, observable, and adaptable network services, making it a key technology for cloud-native NFV, SDN, and 5G deployments.
+*Istio empowers telco operators to deliver secure, observable, and adaptable network services, making it a key technology for cloud-native NFV, SDN, and 5G deployments.*
 
 ---
 
@@ -577,8 +577,7 @@ Retrieve how to access Prometheus and Grafana services:
 ---
 
 **Recap:**  
-You have now set up telemetry in Grafana, visualizing real-time metrics from your Kubernetes cluster. 
-This workflow is essential for monitoring, troubleshooting, and optimizing production environments—especially in telco and cloud-native scenarios.
+*You have now set up telemetry in Grafana, visualizing real-time metrics from your Kubernetes cluster. This workflow is essential for monitoring, troubleshooting, and optimizing production environments—especially in telco and cloud-native scenarios.*
 
 ---
 
@@ -641,6 +640,35 @@ To remove the operator and all resources:
 helm uninstall hello-operator
 kubectl delete crd hellos.unusualfor.com
 ```
+
+### Operator Recap: Why Operators Matter
+
+*Kubernetes operators automate the management of complex applications and resources by extending the Kubernetes API with custom controllers. Operators continuously reconcile the desired state (as defined in custom resources) with the actual state in the cluster.*
+
+**Key Benefits:**
+- Automate routine tasks (deploy, update, backup, scale, heal)
+- Enable custom logic for application lifecycle management
+- Integrate domain-specific knowledge into cluster operations
+- Improve reliability and reduce manual intervention
+
+**General Kubernetes Usefulness:**
+Operators are essential for running stateful, complex, or domain-specific workloads in Kubernetes. They allow you to:
+- Package operational knowledge as code
+- Respond automatically to changes in resources
+- Manage custom resources beyond built-in Kubernetes objects
+
+**Telco/Enterprise Example:**
+In telco and enterprise environments, operators can manage network functions, databases, or middleware, ensuring high availability, automated failover, and seamless upgrades.
+
+**Lab Takeaway:**
+By building and deploying a custom operator, you learned how to:
+- Define a Custom Resource Definition (CRD)
+- Write reconciliation logic using Kopf (Python)
+- Package and deploy the operator with Helm
+- Secure the operator with RBAC
+- Observe automated resource management in action
+
+Operators are a powerful pattern for cloud-native automation and are widely used in production Kubernetes environments.
 
 ---
 
