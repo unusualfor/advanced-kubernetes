@@ -116,12 +116,13 @@ Before starting any Kubernetes work, it's important to ensure Docker is not runn
 Stop the Docker service:
 ```bash
 sudo systemctl stop docker
-sudo systemctl disable docker
 ```
 Verify Docker is stopped:
 ```bash
 sudo systemctl status docker
 ```
+
+> **Note::** We are not disabling docker to start at boot for this lab. Please keep in mind for when you will reboot / restart your environment.
 
 #### Clean Up Docker Artifacts
 
@@ -150,6 +151,12 @@ sudo k0s start
 sudo mount --make-rshared /
 ```
 
+We will also make sure k0s running is not reboot persistent. You can skip this stage in case you already prevented Docker from starting at boot or did not install Docker at all.
+
+```bash
+sudo systemctl disable k0scontroller.service
+```
+
 ### 3. Post-installation:
 - To access your cluster, export the kubeconfig:
 	```bash
@@ -175,6 +182,7 @@ echo $K8S_VERSION
 curl -LO "https://dl.k8s.io/release/${K8S_VERSION}/bin/linux/amd64/kubectl"
 sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 ```
+
 If you cannot parse the version automatically, you can manually check the version with:
 ```bash
 sudo k0s kubectl version
@@ -189,7 +197,7 @@ If k0s was installed previously and your system was restarted, you may need to s
 ```bash
 sudo k0s start
 ```
-If you installed k0s as a system service, it should start automatically. To check status or restart manually:
+If you installed k0s as a system service, you can restart manually:
 ```bash
 sudo systemctl status k0scontroller
 sudo systemctl restart k0scontroller
