@@ -576,8 +576,40 @@ Retrieve how to access Prometheus and Grafana services:
 
 ---
 
-**Recap:**  
-*You have now set up telemetry in Grafana, visualizing real-time metrics from your Kubernetes cluster. This workflow is essential for monitoring, troubleshooting, and optimizing production environments—especially in telco and cloud-native scenarios.*
+### Telemetry Recap: Why Telemetry Is Essential
+
+Telemetry in Kubernetes provides deep visibility into cluster and application health, enabling proactive monitoring, troubleshooting, and optimization. By collecting metrics, logs, and traces, you gain actionable insights for both development and operations.
+
+**Key Benefits:**
+- Monitor resource usage and application performance in real time
+- Detect and troubleshoot issues before they impact users
+- Visualize cluster health and trends with dashboards
+- Set up alerts for critical conditions (e.g., high CPU, pod failures)
+- Support capacity planning and scaling decisions
+
+**General Kubernetes Usefulness:**
+Telemetry tools like Prometheus and Grafana are foundational for:
+- Observing workloads and infrastructure
+- Ensuring reliability and availability
+- Enabling data-driven operations and automation
+- Integrating with service mesh (Istio) and other observability stacks
+
+**Telco/Enterprise Example:**
+In telco and enterprise environments, telemetry is vital for:
+- Monitoring network functions and service quality
+- Meeting SLAs and compliance requirements
+- Rapidly diagnosing and resolving incidents
+- Supporting multi-tenant and large-scale deployments
+
+**Lab Takeaway:**
+By completing the telemetry module, you learned how to:
+- Install and configure Prometheus and Grafana in Kubernetes
+- Expose and scrape custom application metrics
+- Build and customize Grafana dashboards for real-time insights
+- Integrate telemetry with service mesh and other tools
+- Use monitoring data to drive operational decisions and improvements
+
+Telemetry is a cornerstone of modern cloud-native operations, empowering teams to deliver robust, observable, and resilient services.
 
 ---
 
