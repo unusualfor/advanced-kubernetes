@@ -101,107 +101,64 @@ k0s is a modern, lightweight Kubernetes distribution designed for simplicity and
 
 Follow these steps to prepare your environment for the labs:
 
-### 1. Supported Platforms
+### Supported Platforms
 - Debian/Ubuntu
 - SUSE/openSUSE
 - Red Hat/CentOS/Fedora
 - Windows 10/11 with WSL2
 
-### 2. Preparing Your System: Disabling Docker and Cleaning Up
-
-Before starting any Kubernetes work, it's important to ensure Docker is not running and to clean up any Docker-related artifacts (such as iptables rules) that may interfere with your cluster networking.
-
-#### Safely Disable Docker
-
-Stop the Docker service:
-```bash
-sudo systemctl stop docker
-```
-Verify Docker is stopped:
-```bash
-sudo systemctl status docker
-```
-
-> **Note::** We are not disabling docker to start at boot for this lab. Please keep in mind for when you will reboot / restart your environment.
-
-#### Clean Up Docker Artifacts
-
-As an alternative to restarting the Linux system (e.g. restart the Linux system or *wsl ---shutdown* for WSL2), we can remove Docker iptables rules (if present):
-```bash
-# Flush Docker-related chains
-sudo iptables -F DOCKER || true
-sudo iptables -F DOCKER-USER || true
-sudo iptables -F FORWARD
-# Delete Docker chains
-sudo iptables -X DOCKER || true
-sudo iptables -X DOCKER-USER || true
-```
-
-> **Note:** These steps are safe for most Linux systems. 
-
-### 2. Install k0s (Kubernetes Distribution)
-A quick installation guide will be provided here. 
-Refer to the [official k0s documentation](https://docs.k0sproject.io/latest/) for advanced options.
-
-**Quick install (Linux):**
-```bash
-curl -sSL https://get.k0s.sh | sudo bash
-sudo k0s install controller --single
-sudo k0s start
-sudo mount --make-rshared /
-```
-
-We will also make sure k0s running is not reboot persistent. You can skip this stage in case you already prevented Docker from starting at boot or did not install Docker at all.
-
-```bash
-sudo systemctl disable k0scontroller.service
-```
-
-### 3. Post-installation:
-- To access your cluster, export the kubeconfig:
-	```bash
-	sudo k0s kubeconfig admin > ~/.kube/config
-	```
-- Check cluster status:
-	```bash
-	sudo k0s status
-	```
-
-### 4. kubectl Installation
-
-kubectl is the Kubernetes command-line tool. 
-k0s comes by default with its minimal kubectl accessible with *k0s kubectl version*.
-To allow you to use the official kubectl tool from Kubernetes, we will now download the version that matches your k0s cluster:
-
-**Scripted install (recommended):**
-```bash
-# Get the Kubernetes version from k0s
-K8S_VERSION=$(sudo k0s kubectl version | grep 'Client Version' | awk '{print $3}')
-echo $K8S_VERSION
-# Download the matching kubectl binary
-curl -LO "https://dl.k8s.io/release/${K8S_VERSION}/bin/linux/amd64/kubectl"
-sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-```
-
-If you cannot parse the version automatically, you can manually check the version with:
-```bash
-sudo k0s kubectl version
-# In the case of k0s, either 'Client Version' or 'Server Version' will be aligned (e.g., v1.34.2). 
-```
-Then substitute the version in the download URL above.
-
 ---
 
-### Restarting k0s After a System Reboot
-If k0s was installed previously and your system was restarted, you may need to start the k0s service again:
+### Quick Start: Cloning and Syncing This Repository
+
+To get started with the course materials:
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/unusualfor/advanced-kubernetes.git
+   cd advanced-kubernetes
+   ```
+2. **Keep your local copy up to date:**
+   ```bash
+   git pull
+   ```
+   Run this command regularly to fetch the latest updates and improvements.
+
+### k0s setup
+
+Depending on the status of your system, you have 3 cases shown below. 
+Please consider which one suits your system better before running.
+
+> The script requires sudo privileges and should be run from the repository root.
+
+#### Case 1 - First install: setup k0s
+
+To automate your lab environment setup and avoid common issues, use the unified script:
+
+**Run the setup:**
+   ```bash
+   ./infra/k0s.sh setup
+   ```
+   This will stop Docker, clean up iptables, install and start k0s, and configure your kubeconfig.
+
+#### Case 2 - Restart k0s after a reboot
+
+> **Note**: To allow co-existance of Docker and k0s in the lab environment, Docker is only temporarily stopped from running and, at system restart, will start again.
+This means that the above script disables k0s from starting at system boot.
+In general, in production environments, only k0s (or Docker) would be installed and start at boot.
+
 ```bash
-sudo k0s start
+./infra/k0s.sh restart
 ```
-If you installed k0s as a system service, you can restart manually:
-```bash
-sudo systemctl status k0scontroller
-sudo systemctl restart k0scontroller
-```
+
+#### Case 3 - Reset k0s to start from a clean environment
+
+Should you want to start clean, you can use the below:
+
+   ```bash
+   ./infra/k0s.sh reset
+   ```
+   This will clean up any previous state and start fresh.
 
 ---
 
@@ -230,7 +187,7 @@ After installation, verify with:
 helm version
 ```
 
-### Helm 3 Reference Commands 
+### Helm Reference Commands 
 Helm charts can be created from scratch or downloaded from repositories. Common operations include:
 - Creating a new chart: `helm create <chart-name>`
 - Installing a chart: `helm install <release-name> <chart>`
@@ -757,7 +714,26 @@ helm uninstall assignment-app -n assignment
 
 ---
 
-Feel free to suggest additional topics or improvements!
+## Quick Environment Setup and Reset
+
+To automate your lab environment setup and avoid common issues, use the unified script:
+
+1. **Run the setup:**
+   ```bash
+   ./k0s-lab.sh setup
+   ```
+   This will stop Docker, clean up iptables, install and start k0s, and configure your kubeconfig.
+
+2. **If you need to reset and start fresh:**
+   ```bash
+   ./k0s-lab.sh reset
+   ./k0s-lab.sh setup
+   ```
+   This will clean up any previous state and start fresh.
+
+> The script requires sudo privileges and should be run from the repository root.
+
+---
 
 ## Resources
 
