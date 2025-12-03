@@ -72,10 +72,10 @@ To get the most out of this class, you should have:
 - Windows 10/11 with WSL2
 
 ### Preparation Steps
-1. Ensure you have administrative (sudo) access on your system
-2. Update your system packages to the latest versions
-3. Install a modern web browser for accessing dashboards
-4. Set up a virtualization environment (e.g., VirtualBox, VMware, KVM) for isolated labs or spin up a WSL instance
+1. Set up a virtualization environment (e.g., VirtualBox, VMware, KVM) for isolated labs or spin up a WSL instance
+2. Ensure you have administrative (sudo) access on your system
+3. Update your system packages to the latest versions
+4. Install a modern web browser for accessing dashboards
 
 ---
 
@@ -177,9 +177,22 @@ Helm is the package manager for Kubernetes. It simplifies the deployment and man
 - **Repository:** A collection of published charts
 
 ### Installing Helm
+In this lab we will refer to Helm 4. Helm 3 would work well too, in case you are used to that already.
+
 Refer to the installation instructions below:
 ```bash
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4 | VERIFY_CHECKSUM=false bash
+```
+
+> **Note**: *VERIFY_CHECKSUM=false* is set because most WSL instances do not have complete openssl suites installed. In a production environment, *VERIFY_CHECKSUM* must be set to true (i.e. default option for the Helm install script).
+If you are curious, you can try forcing *VERIFY_CHECKSUM=true* and in case the installation fails because of openssl, install it with:
+```bash
+# Debian / Ubuntu
+apt update
+apt install openssl -y
+
+# Red Hat / Fedora / CentOS
+dnf install openssl -y
 ```
 
 After installation, verify with:
@@ -195,10 +208,22 @@ Helm charts can be created from scratch or downloaded from repositories. Common 
 - Uninstalling a release: `helm uninstall <release-name>`
 - Listing releases: `helm list`
 
-### Exercise 1: Hands-on Helm 
-Below is a suggested structure for practical Helm exercises:
+### Helm Chart Folder Structure (What’s Inside `helm/`)
+This repository includes already a helm chart in the helm/ folder.
+While the helm chart can be packaged and distributed through a centralized registry, in this example it is provided in the helm/ folder to allow you to explore what this chart is doing file by file.
 
-- Objective: Deploy a custom app using an Helm chart
+A typical Helm chart folder contains:
+- `README.md` — (Optional) Documentation for the chart
+- `Chart.yaml` — Metadata about the chart (name, version, description)
+- `values.yaml` — Default configuration values (can be overridden with `--set` or custom files)
+- `templates/` — Directory containing Kubernetes manifest templates (e.g., `deployment.yaml`, `service.yaml`, `configmap.yaml`). These files define the resources for your application and are dynamically rendered using values from `values.yaml` and any `--set` parameters provided during installation.
+
+When you run `helm install ... helm/`, Helm dynamically renders all templates using your configuration values, then applies the resulting manifests to the Kubernetes API (equivalent of several *kubectl apply -f file.yaml* operations). 
+This automates what would otherwise be a manual, error-prone process of editing and applying each file in `templates/` individually—an approach that quickly becomes unmanageable for large or complex applications.
+You can customize deployments by editing `values.yaml`, passing parameters with `--set`, or modifying the files in `templates/`.
+
+### Exercise 1: Hands-on Helm 
+- Objective: Deploy a custom app using a local Helm chart
 - Steps:
   1. Using the locally provided Helm chart we can install the custom nginx application:
 	  ```bash
@@ -214,7 +239,10 @@ Below is a suggested structure for practical Helm exercises:
 	  kubectl get pods -n hello-app
 	  helm list -n ciao-app
 	  helm list -n hello-app
+	  ```
 
+  4. Check that the custom variables have been deployed correctly in the webserver applications:
+	  ```bash
 	  ciaoIP=$(kubectl get po -n ciao-app -o jsonpath="{.items[*].status.podIP}")
 	  curl $ciaoIP
 
@@ -223,11 +251,10 @@ Below is a suggested structure for practical Helm exercises:
 	  ```
 
 #### Bonus: Modify the Custom Chart
-- Objective: Take the custom Helm chart and change the title of the webpage
+- Objective: Take the custom Helm chart and change the title of the webpage. You should be able to do it by just changing two lines.
 - Steps:
-	1. Inside the helm folder there are all the files used to install the application
-	2. Customize the values available in values.yaml with a new parameter called *customPage*
-	3. Customize the templates/configmap.yaml by including the variable *customPage*
+	1. Modify *helm/values.yaml* to include a new line *customPage*. Use *customText* as an example.
+	3. Customize the *templates/configmap.yaml* by including the variable *customPage* between *<title>* and *</title>*. Use the line with *<h1>{{ .Values.customText }}</h1>* as an example.
 	3. Install and test the chart with
 		```bash
 		helm install goodbye-app helm/ --set customPage="Goodbye!" --set customText="goodbye!" -n goodbye-app --create-namespace
@@ -267,174 +294,262 @@ In telecommunications (telco) environments, Helm is especially valuable. For exa
 
 ---
 
-## Module 2: Istio
+## Module 2: Service Mesh
+
 
 ### Introduction to Istio
 Istio is a popular open-source service mesh that provides advanced traffic management, security, and observability for microservices running in Kubernetes. It enables you to control, secure, and monitor service-to-service communication without modifying application code. Kiali is an observability console for Istio, offering service mesh visualization, traffic flow analysis, and configuration validation.
 
+> **Why Istio?**  
+> Istio is widely adopted in production environments for its rich feature set, strong community support, and seamless integration with Kubernetes. Compared to other service meshes (e.g., Linkerd, Consul), Istio offers advanced traffic control, security policies, and deep observability, making it ideal for telco and enterprise scenarios.
+
 **Key Concepts:**
-- **Service Mesh:** Infrastructure layer for managing service-to-service communication
-- **Envoy Proxy:** Sidecar proxy deployed with each service to intercept traffic
-- **Control Plane:** Manages configuration and policies (Istiod)
-- **Data Plane:** Handles actual traffic between services (Envoy)
+- **Service Mesh:** An infrastructure layer that transparently manages service-to-service communication, enabling features like traffic control, security, and observability.
+- **Envoy Proxy:** A lightweight sidecar proxy deployed with each service, intercepting all inbound and outbound traffic to enable routing, security, and telemetry.
+- **Control Plane (Istiod):** The component that manages configuration, policies, and service discovery for the mesh.
+- **Data Plane:** The network of Envoy proxies that handle actual traffic between services, enforcing policies and collecting telemetry.
 
 ### Traffic Management, Security, and Observability
-- **Traffic Management:** Control routing, load balancing, and traffic splitting
-- **Security:** Mutual TLS, authentication, and authorization between services
-- **Observability:** Telemetry, tracing, and monitoring of service interactions
+- **Traffic Management:** Enables advanced routing, load balancing, blue/green deployments, and canary releases for safer application updates.
+- **Security:** Provides mutual TLS, authentication, and authorization between services, ensuring secure and compliant communication.
+- **Observability:** Offers telemetry, tracing, and monitoring of service interactions, helping you visualize traffic flows and troubleshoot issues quickly.
 
 #### Exercise 1: Install Istio and Verify
+
 - Objective: Deploy Istio and confirm system components are running
 - Steps:
-	1. It is possible to install istio through Helm chart or *istioctl*, which is a utility developed by the community for in-depth evaluation.
-	We will focus on istioctl for its simplified approach.
+  1. **Installation options:** Istio can be installed either via Helm chart or using *istioctl*, the official CLI tool. For simplicity and consistency in labs, we use *istioctl*, which automates many steps and is recommended for beginners. In production, Helm charts are often used for advanced customizations and CI/CD integration.
 
-		**Quick install (recommended for labs):**
-		```bash
-		curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.28.0 sh -
-		export PATH="$PWD/istio-1.28.0/bin:$PATH"
-		istioctl install --set profile=minimal -y
-		```
-		Verify installation:
-		```bash
-		kubectl get pods -n istio-system
-		```
+	  **Quick install (recommended for labs):**
 
-		Refer to the [Istio documentation](https://istio.io/latest/docs/setup/) for advanced options.
+	  ```bash
+	  curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.28.0 sh - # Downloads and extracts the specified Istio version.
+	  export PATH="$PWD/istio-1.28.0/bin:$PATH" # Adds Istio binaries to your PATH for easy access.
+	  istioctl install --set profile=minimal -y # Installs Istio with the minimal profile, suitable for labs and quick demos.
+	  ```
 
-	2. Kiali is an observability console for Istio service mesh, providing service graph, traffic flow, and configuration validation.
-	By default Kiali requires additional Telemetry tools such as Prometheus and Grafana to display data in its UI.
+	  **Verify installation:**
+	  ```bash
+	  kubectl get pods -n istio-system # Checks that Istio components are running in the `istio-system` namespace.
+	  ```
 
-		**Quick install (recommended for labs):**
-		```bash
-		kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.28/samples/addons/kiali.yaml
-		kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.28/samples/addons/prometheus.yaml
-		kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.28/samples/addons/grafana.yaml
-		```
-		Verify installation:
-		```bash
-		kubectl get pods -n istio-system -w 
-		```
-	3. You can now access Kiali dashboard:
-		```bash
-		kubectl port-forward -n istio-system svc/kiali 20001:20001
-		```
-		Kiali is now accessible temporarily in your browser at http://localhost:20001 
+	  Refer to the [Istio documentation](https://istio.io/latest/docs/setup/) for advanced options and production-grade profiles.
 
-		You can navigate through the UI, but at this point you will not see anything of interest in terms of Istio.
+	  **Troubleshooting tips:**
+	  - If pods are not starting, check events with `kubectl describe pod <pod-name> -n istio-system`.
+	  - Ensure your cluster has enough resources (CPU, RAM).
+	  - If `istioctl` is not found, verify your PATH and installation steps.
+
+  2. **Install observability tools:** Kiali is an observability console for Istio, providing service graph, traffic flow, and configuration validation. By default, Kiali requires additional telemetry tools such as Prometheus and Grafana to display data in its UI.
+
+	  **Quick install (recommended for labs):**
+	  - The following commands deploy Kiali, Prometheus, and Grafana in your cluster:
+	  ```bash
+	  kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.28/samples/addons/kiali.yaml
+	  kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.28/samples/addons/prometheus.yaml
+	  kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.28/samples/addons/grafana.yaml
+	  ```
+	  **Verify installation:**
+	  ```bash
+	  kubectl get pods -n istio-system -w # Watches the status of pods in the `istio-system` namespace until they are running.
+	  ```
+
+	  **Troubleshooting tips:**
+	  - If pods are stuck in `Pending` or `CrashLoopBackOff`, check logs with `kubectl logs <pod-name> -n istio-system`.
+	  - Network or resource issues may delay startup; ensure your environment meets requirements.
+
+  3. **Access Kiali dashboard:**
+	  We will temporarily forward the Kiali service to your local machine. Ideally, this could be handled differently (e.g. Ingress, NodePort, etc.), but given the scope of the exercise and the nature of the tool (debug, not production) this is the easiest approach.
+	  
+	  ```bash
+	  kubectl port-forward -n istio-system svc/kiali 20001:20001
+	  ```
+	  The dashboard will be accessible at [http://localhost:20001](http://localhost:20001) while the terminal session is active.
+	  > **Note:** The port-forward session must remain open to access Kiali. Close the terminal or interrupt the command to stop access. If you plan to run other commands while the UI stays open, you can consider either to open another terminal shell or append *" &"* by the end of the previous command (in this case, remember to close it when done with *"fg"* command and CTRL+C).
+
+	  You can navigate through the UI, but at this point you will not see much until sample applications are deployed and traffic is generated.
 
 #### Exercise 2: Deploy Sample Application
+This is a revised example out of https://istio.io/latest/docs/setup/install/multicluster/verify/
+
+
 - Objective: Deploy a sample app with Istio sidecars injected
 - Steps:
-	1. Label the namespace for automatic sidecar injection
-		```bash
-		kubectl create namespace demo
-		kubectl label namespace demo istio-injection=enabled
-		```
-	2. Deploy the sample app
-		```bash
-		kubectl apply -n demo -f https://raw.githubusercontent.com/istio/istio/release-1.28/samples/helloworld/helloworld.yaml
-		kubectl get pods -n demo
-		```
-	3. Verify sidecar proxies are running both in CLI 
-		```bash
-		kubectl get pods -n demo # Copy the name of the pod you prefer to inspect
-		kubectl describe pod <pod-name> | grep istio-proxy # Substitute <pod-name> with the name of the pod from the previous command
-		```
-		In the Kiali UI you will start seeing the application by looking at the different tabs, e.g. Applications.
+  1. **Namespace labeling and sidecar injection:**
+	  - Istio uses automatic sidecar injection to add an Envoy proxy container to each pod in a labeled namespace. This enables traffic management, security, and observability features for all services in that namespace.
+	  - The label `istio-injection=enabled` triggers this behavior.
+	  ```bash
+	  kubectl create namespace demo
+	  kubectl label namespace demo istio-injection=enabled
+	  ```
 
-		In the Traffic Graph tab, select the "*demo*" namespace. 
-		The application is not yet generating any traffic, so let's generate some!
-	
-	4. Generate sample traffic and watch Kiali UI getting populated
-		```bash
-		istio/helloworld-traffic.sh
-		```
-		Kiali UI will now show the ongoing traffic. 
+  2. **Deploy the sample app:**
+	  - The sample app (`helloworld.yaml`) is a simple HTTP service used for demonstration and testing Istio features. Deploy it to the labeled namespace:
+	  ```bash
+	  kubectl apply -n demo -f https://raw.githubusercontent.com/istio/istio/release-1.28/samples/helloworld/helloworld.yaml
+	  kubectl get pods -n demo -w 
+	  ```
+
+  3. **Verify sidecar injection:**
+	  - Each pod should have two containers: the application and the `istio-proxy` (Envoy sidecar). To check:
+	  ```bash
+	  kubectl describe pod -n demo | grep -A 5 "Containers:"
+	  ```
+	  - You should see both the app container and `istio-proxy` listed. Alternatively, use:
+	  ```bash
+	  kubectl get pods -n demo -o jsonpath='{.items[*].spec.containers[*].name}'
+	  ```
+	  - In the Kiali UI, the application will appear under the "Applications" tab once pods are running.
+
+  4. **Generate traffic for observability:**
+	  - Open the Traffic Graph in Kiali and select the *demo* namespace
+	  - The Traffic Graph in Kiali will not show much until traffic is generated. Use the provided script to simulate requests:
+	  ```bash
+	  istio/helloworld-traffic.sh
+	  ```
+	  - Kiali UI will now show the ongoing traffic and service interactions.
+
+  **Troubleshooting tips:**
+  - If pods do not have the `istio-proxy` sidecar, ensure the namespace is labeled correctly and that Istio's sidecar injector webhook is running (`kubectl get pods -n istio-system | grep injector`).
+  - If pods are stuck or not starting, check logs with `kubectl logs <pod-name> -n demo` and describe events with `kubectl describe pod <pod-name> -n demo`.
+  - If Kiali UI does not show the app, verify that traffic is being generated and pods are healthy.
 
 #### Exercise 3: Security
-- Objective: Enable mutual TLS between services
+
+- Objective: Enable mutual TLS (mTLS) between services for secure communication
 - Steps:
-	1. Apply Istio PeerAuthentication policy
-		```bash
-		kubectl apply -f istio/mtls.yaml
-		```
-	2. Restart the helloworld application and generate some traffic between the components as before.
-		```bash
-		kubectl rollout restart deployment -n demo helloworld-v1 helloworld-v2
-		istio/helloworld-traffic.sh
-		```
-	3. Verify encrypted communication in the Kiali UI. 
-	In the Traffic Graph, select Display menu and click on Badges/Security.
-	You will now notice that a Lock is displayed on the links, meaning that mTLS is in place.
+  1. **Apply Istio PeerAuthentication policy:**
+	  - Mutual TLS (mTLS) encrypts traffic between services, ensuring both authentication and confidentiality. This is a best practice for production environments.
+	  - The PeerAuthentication policy configures Istio to require mTLS for all workloads in the namespace.
+	  ```bash
+	  kubectl apply -f istio/mtls.yaml
+	  ```
+
+  2. **Restart deployments and generate traffic:**
+	  - Restarting the deployments ensures that the new mTLS policy is picked up by all pods.
+	  ```bash
+	  kubectl rollout restart deployment -n demo helloworld-v1 helloworld-v2
+	  istio/helloworld-traffic.sh
+	  ```
+
+  3. **Verify encrypted communication in Kiali UI:**
+	  - In the Traffic Graph, select the Display menu and click on Badges/Security.
+	  - A lock icon will appear on the links between services, indicating that mTLS is active and traffic is encrypted.
+
+  **Troubleshooting tips:**
+  - If the lock badge does not appear, check that the PeerAuthentication policy was applied and that all pods have been restarted.
+  - Use `kubectl get peerauthentication -n demo` to verify the policy is present.
+  - Check pod logs and events for errors related to mTLS or sidecar injection.
 
 #### Exercise 4: Complex application traces
-- Objective: Deploy another sample application composed by multiple microservices
+This is a simplified example taken from https://kiali.io/docs/tutorials/travels/
+
+
+- Objective: Deploy a complex sample application composed of multiple microservices and visualize traces in Kiali
 - Steps:
-	1. Install the sample application
-		```bash
-		kubectl create namespace travel-agency
-		kubectl create namespace travel-portal
-		kubectl create namespace travel-control
+  1. **Install and label namespaces for sidecar injection:**
+	  - The travel demo application consists of several microservices deployed across three namespaces. Label each namespace to enable automatic Envoy sidecar injection for observability and traffic management.
+	  ```bash
+	  kubectl create namespace travel-agency
+	  kubectl create namespace travel-portal
+	  kubectl create namespace travel-control
 
-		kubectl label namespace travel-agency istio-injection=enabled
-		kubectl label namespace travel-portal istio-injection=enabled
-		kubectl label namespace travel-control istio-injection=enabled
+	  kubectl label namespace travel-agency istio-injection=enabled
+	  kubectl label namespace travel-portal istio-injection=enabled
+	  kubectl label namespace travel-control istio-injection=enabled
+	  ```
 
-		kubectl apply -f <(curl -L https://raw.githubusercontent.com/kiali/demos/master/travels/travel_agency.yaml) -n travel-agency
-		kubectl apply -f <(curl -L https://raw.githubusercontent.com/kiali/demos/master/travels/travel_portal.yaml) -n travel-portal
-		kubectl apply -f <(curl -L https://raw.githubusercontent.com/kiali/demos/master/travels/travel_control.yaml) -n travel-control
-		```
-	2. Visualize traffic and traces in the Kiali UI
+  2. **Deploy the travel demo microservices:**
+	  - Apply the manifests for each part of the application. These will create multiple interconnected services for a realistic microservices scenario.
+	  ```bash
+	  kubectl apply -f <(curl -L https://raw.githubusercontent.com/kiali/demos/master/travels/travel_agency.yaml) -n travel-agency
+	  kubectl apply -f <(curl -L https://raw.githubusercontent.com/kiali/demos/master/travels/travel_portal.yaml) -n travel-portal
+	  kubectl apply -f <(curl -L https://raw.githubusercontent.com/kiali/demos/master/travels/travel_control.yaml) -n travel-control
+	  ```
+
+  3. **Visualize traffic and traces in Kiali UI:**
+	  - Once the pods are running and traffic is generated, open the Kiali dashboard and explore the Traffic Graph and Traces tabs. You should see multiple services interacting, with traces showing request flows across namespaces.
+
+  4. **Check mTLS status:**
+	  - In Kiali, verify if mTLS is enabled by looking for the lock icon on service links. This shoudl be enabled by default given that the PeerAuthentication resource applied in the previous exercise was applied globally and not restricted to a single namespace.
+
+  **Troubleshooting tips:**
+  - If services do not appear in Kiali, check that all namespaces are labeled for injection and pods are healthy.
+  - If traffic is not visible, ensure requests are being made between services (some demos include built-in traffic generators).
+  - Use `kubectl get pods -n <namespace>` and `kubectl logs <pod-name> -n <namespace>` to diagnose issues.
+
+---
+
+## Istio Cleanup
+
+To remove the sample applications and namespaces deployed for Istio labs, run:
+
+```bash
+# Remove helloworld demo
+kubectl delete namespace demo
+
+# Remove travel demo applications and namespaces
+kubectl delete namespace travel-agency
+kubectl delete namespace travel-portal
+kubectl delete namespace travel-control
+```
+
+These commands may take a few minutes to complete, as Kubernetes will clean up all resources in the specified namespaces. You can safely press CTRL+C after a few seconds—the deletion request will continue in the background.
+
+This cleanup step ensures your cluster is ready for the next exercises and prevents resource conflicts or leftover objects from previous labs.
 
 ---
 
 ### Istio Recap: Why Istio Is Important
 
 Istio is a powerful service mesh for Kubernetes, providing advanced traffic management, security, and observability. It enables:
-- Fine-grained control over service-to-service communication
-- Secure connections with mutual TLS and policy enforcement
-- Deep visibility into microservice interactions and performance
-- Resilient traffic routing, load balancing, and fault injection
+- Fine-grained control over service-to-service communication, allowing you to direct, split, and monitor traffic between microservices.
+- Secure connections with mutual TLS (mTLS) and policy enforcement, protecting sensitive data and ensuring compliance.
+- Deep visibility into microservice interactions and performance, making troubleshooting and optimization much easier.
+- Resilient traffic routing, load balancing, and fault injection for robust, production-grade deployments.
 
 **General Kubernetes Usefulness:**
-Istio makes it easy to manage complex microservice architectures, enforce security policies, and gain insights into application behavior. It is widely adopted for production-grade Kubernetes environments where reliability, security, and observability are critical.
+Istio simplifies the management of complex microservice architectures, enforces security policies, and provides actionable insights into application behavior. Its integration with tools like Kiali, Prometheus, and Grafana makes it a cornerstone of modern Kubernetes operations.
 
-**Telco Environment Example:**
-In telecommunications (telco) environments, Istio is especially valuable for:
-- Managing network functions O&M networks with strict security and traffic requirements
-- Enabling service chaining and dynamic routing
+**Telco/Enterprise Environment Example:**
+In telecommunications and enterprise environments, Istio is especially valuable for:
+- Managing network functions and O&M networks with strict security and traffic requirements
+- Enabling service chaining, dynamic routing, and multi-tenant architectures
 - Providing end-to-end encryption and authentication between network components
-- Supporting multi-tenant, multi-network scenarios with policy-driven control
+- Supporting policy-driven control for compliance and operational efficiency
 
-*Istio empowers telco operators to deliver secure, observable, and adaptable network services, making it a key technology for cloud-native NFV, SDN, and 5G deployments.*
+*Istio empowers operators and developers to deliver secure, observable, and adaptable network services, making it a key technology for cloud-native NFV, SDN, and 5G deployments as well as large-scale enterprise applications.*
 
 ---
 
 ## Module 3: Telemetry
 
 ### Introduction to Telemetry in Kubernetes
-Telemetry refers to the collection, processing, and visualization of metrics, logs, and traces from the applications. It becomes essential in Kubernetes clusters, where microservices are generally deployed. 
-It is overall fundamental for monitoring cluster health, troubleshooting issues, and optimizing performance.
+
+Telemetry refers to the collection, processing, and visualization of metrics, logs, and traces from applications. In Kubernetes clusters, where microservices are generally deployed, telemetry is essential for monitoring cluster health, troubleshooting issues, and optimizing performance. This module builds on previous Istio/Kiali exercises and guides you through setting up a production-like observability stack using Helm.
 
 **Key Concepts:**
-- **Metrics:** Quantitative data about resource usage and application performance (e.g., CPU, memory, request rates)
-- **Logs:** Textual records of events and errors from containers and system components
-- **Traces:** Distributed request flows across microservices
-- **Dashboards:** Visualizations of metrics and logs for quick insights
+
+- **Metrics:** Quantitative data about resource usage and application performance (e.g., CPU, memory, request rates). Collected by Prometheus.
+- **Logs:** Textual records of events and errors from containers and system components. Aggregated by tools like Loki.
+- **Traces:** Distributed request flows across microservices, useful for debugging and performance analysis. Visualized with Jaeger or Tempo.
+- **Dashboards:** Visualizations of metrics and logs for quick insights, typically created in Grafana.
 
 ### Common Tools
-- **Prometheus:** Metrics collection and storage
-- **Grafana:** Visualization and dashboarding
-- **Loki:** Log aggregation 
-- **Jaeger/Tempo:** Distributed tracing 
+
+- **Prometheus:** The de facto standard for metrics collection and storage in Kubernetes. Scrapes metrics from cluster components and applications.
+- **Grafana:** Visualization and dashboarding tool. Connects to Prometheus and other data sources to create interactive dashboards.
+- **Loki:** Log aggregation system designed for Kubernetes. Integrates with Grafana for unified metrics and logs.
+- **Jaeger/Tempo:** Distributed tracing tools that help visualize request flows across microservices. Useful for debugging latency and dependencies.
 
 ### Exercise 1: Installing Prometheus and Grafana
-We already installed Prometheus and Grafana when working with [Istio and Kiali](#module-2-istio). However now, we will install it officially through Helm, as if we were on a production environment.
 
-Refer to the official documentation for advanced options.
+We already installed Prometheus and Grafana when working with [Istio and Kiali](#module-2-istio). In this exercise, we install them officially through Helm to simulate a production setup and explore advanced configuration options. This approach allows for easier upgrades, customizations, and integration with CI/CD pipelines.
+
+Refer to the official documentation for advanced options and best practices.
 
 **Quick install using Helm:**
+
 ```bash
 # Add the official Helm repository
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
@@ -445,91 +560,96 @@ helm repo update
 helm install prometheus prometheus-community/prometheus --set server.persistentVolume.enabled=false --set server.service.nodePort=30303 --set server.service.type=NodePort --set alertmanager.persistence.enabled=false
 
 # Install Grafana
-helm install grafana grafana/grafana --set adminPassword=admin 
+helm install grafana grafana/grafana --set adminPassword=admin --set service.type=NodePort --set service.nodePort=30405
 ```
 
+> **Security Note:** The default Grafana credentials are `admin` / `admin`. Change these in production environments to prevent unauthorized access.
+
 Verify installation:
+
 ```bash
 kubectl get pods
 helm list
 ```
 
-Retrieve how to access Prometheus and Grafana services:
+If Prometheus and Grafana pods are not running, check their logs and events:
 ```bash
-#Get the Prometheus server URL by running these commands in the same shell:
-  export NODE_PORT=$(kubectl get --namespace default -o jsonpath="{.spec.ports[0].nodePort}" services prometheus-server)
-  export NODE_IP=$(kubectl get nodes --namespace default -o jsonpath="{.items[0].status.addresses[0].address}")
-  echo "Prometheus UI: http://$NODE_IP:$NODE_PORT"
-
-#Get the Grafana URL to visit by running these commands in the same shell:
-  export NODE_PORT=$(kubectl get --namespace default -o jsonpath="{.spec.ports[0].nodePort}" services grafana)
-  export NODE_IP=$(kubectl get nodes --namespace default -o jsonpath="{.items[0].status.addresses[0].address}")
-  echo "Grafana UI: http://$NODE_IP:$NODE_PORT"
+kubectl logs <pod-name>
+kubectl describe pod <pod-name>
 ```
 
+Retrieve how to access Prometheus and Grafana services:
+
+```bash
+# Get the Prometheus server URL by running these commands in the same shell:
+export PNODE_PORT=$(kubectl get --namespace default -o jsonpath="{.spec.ports[0].nodePort}" services prometheus-server)
+export PNODE_IP=$(kubectl get nodes --namespace default -o jsonpath="{.items[0].status.addresses[0].address}")
+echo "Prometheus UI: http://$PNODE_IP:$PNODE_PORT"
+
+# Get the Grafana URL to visit by running these commands in the same shell:
+export GNODE_PORT=$(kubectl get --namespace default -o jsonpath="{.spec.ports[0].nodePort}" services grafana)
+export GNODE_IP=$(kubectl get nodes --namespace default -o jsonpath="{.items[0].status.addresses[0].address}")
+echo "Grafana UI: http://$GNODE_IP:$GNODE_PORT"
+```
+
+If you cannot access the UIs, check that your cluster nodes are reachable and that NodePort services are correctly exposed.
+
 ### Exercise 2: Setting Up Telemetry in Grafana
+
 - Objective: Configure Prometheus to collect metrics from your Kubernetes cluster and visualize them in Grafana using ready-made dashboards.
 - Steps:
-	1. Prerequisites
-		- Prometheus and Grafana are installed (see [Module 2](#module-2-istio)).
-		- You have access to your cluster via `kubectl` (see [Kubernetes Distribution: k0s](#kubernetes-distribution-k0s)).
-		- Helm is installed and configured (see [Module 1](#module-1-helm)).
+  1. **Prerequisites**
+	  - Prometheus and Grafana are installed (see [Module 2](#module-2-istio)).
+	  - You have access to your cluster via `kubectl` (see [Kubernetes Distribution: k0s](#kubernetes-distribution-k0s)).
+	  - Helm is installed and configured (see [Module 1](#module-1-helm)).
 
-	2. Ensure Prometheus Is Scraping Cluster Metrics
-		Prometheus should be configured to scrape metrics from Kubernetes components. If you installed Prometheus using the official Helm chart (i.e. the instructions in [Exercise 1](#exercise-1-installing-prometheus-and-grafana)), default scrape configs are included.
+  2. **Ensure Prometheus Is Scraping Cluster Metrics**
+	  - Prometheus should be configured to scrape metrics from Kubernetes components. If you installed Prometheus using the official Helm chart, default scrape configs are included and you do not need to do anything.
+	  - To verify, open the Prometheus UI and check the "Targets" page (or simply, hit http://$PNODE_IP:$PNODE_PORT/targets). All expected Kubernetes endpoints should be listed as "up".
 
-	3. Access Prometheus and Grafana UIs
+  3. **Access Prometheus and Grafana UIs**
+	  - Use the commands above to retrieve the NodePort URLs. Open the Grafana URL in your browser.
+	  - Default login: `admin` / `admin` (unless changed during install).
 
-	```bash
-		#Get the Prometheus server URL by running these commands in the same shell:
-		  export NODE_PORT=$(kubectl get --namespace default -o jsonpath="{.spec.ports[0].nodePort}" services prometheus-server)
-		  export NODE_IP=$(kubectl get nodes --namespace default -o jsonpath="{.items[0].status.addresses[0].address}")
-		  echo "Prometheus UI: http://$NODE_IP:$NODE_PORT"
+  4. **Add Prometheus as a Data Source in Grafana**
+	  - In Grafana, go to **Connection → Data Sources → Add data source**.
+	  - Select **Prometheus**.
+	  - Set the URL to the Prometheus address found above.
+	  - Click **Save & Test**. It should return that Prometheus was successfully queried.
 
-		#Get the Grafana URL to visit by running these commands in the same shell:
-		  export NODE_PORT=$(kubectl get --namespace default -o jsonpath="{.spec.ports[0].nodePort}" services grafana)
-		  export NODE_IP=$(kubectl get nodes --namespace default -o jsonpath="{.items[0].status.addresses[0].address}")
-		  echo "Grafana UI: http://$NODE_IP:$NODE_PORT"
-	```
+  5. **Import Kubernetes Monitoring Dashboards**
+	  - Use the following ready-made dashboards for cluster and node monitoring.
+	  - **Kubernetes Cluster Monitoring Dashboard:**
+		 - Dashboard ID: `6417`
+		 - Source: https://grafana.com/grafana/dashboards/6417
+	  - **Node Exporter Full Dashboard:**
+		 - Dashboard ID: `1860`
+		 - Source: https://grafana.com/grafana/dashboards/1860
+	  - To import:
+		 1. In Grafana, click **Dashboards → Import**.
+		 2. Enter the dashboard ID (`6417` or `1860`) and click **Load**.
+		 3. Select your Prometheus data source.
+		 4. Click **Import**.
+	  - You should now be able to visualize the dashboards and the metrics being collected.
 
-	Open the Grafana URL address provided in your browser.
-	- Default login: `admin` / `admin` (unless changed during install)
+  6. **Explore Cluster Metrics**
+	  - Open the imported dashboards.
+	  - Review metrics such as CPU, memory, pod status, and node health.
+	  - Use filters and time ranges to analyze cluster performance.
 
-	4. Add Prometheus as a Data Source in Grafana
+  7. **Customize Dashboards and Alerts**
+	  - Add panels for custom metrics.
+	  - Set up alerts for critical conditions (e.g., high CPU, pod failures).
 
-		* In Grafana, go to **Settings → Data Sources → Add data source**.
-		* Select **Prometheus**.
-		* Set the URL to the Prometheus URL address found above.
-		* Click **Save & Test**.
+  **Troubleshooting tips:**
+  - If Prometheus targets are not showing up or are down, check the Prometheus configuration and pod logs.
+  - If Grafana login fails, reset the admin password using Helm or check the pod logs for errors.
+  - If NodePort services are not accessible, verify your cluster networking and firewall settings.
 
-	5. Import Kubernetes Monitoring Dashboards
-
-		Use ready-made dashboards for cluster and node monitoring.
-
-		**Kubernetes Cluster Monitoring Dashboard:**
-		- Dashboard ID: `6417`
-		- Source: https://grafana.com/grafana/dashboards/6417
-
-		**Node Exporter Full Dashboard:**
-		- Dashboard ID: `1860`
-		- Source: https://grafana.com/grafana/dashboards/1860
-
-		**To import:**
-		1. In Grafana, click **Dashboards → Import**.
-		2. Enter the dashboard ID (`6417` or `1860`) and click **Load**.
-		3. Select your Prometheus data source.
-		4. Click **Import**.
-
-		**It is now possible to visualize the dashboards and the metrics getting pulled.**
-
-	6. Explore Cluster Metrics
-		- Open the imported dashboards.
-		- Review metrics such as CPU, memory, pod status, and node health.
-		- Use filters and time ranges to analyze cluster performance.
-
-	7. Customize Dashboards
-		- Add panels for custom metrics.
-		- Set up alerts for critical conditions (e.g., high CPU).
+  **Advanced exploration (optional):**
+  - Configure custom scrape jobs in Prometheus for additional applications.
+  - Add Loki for log aggregation and visualize logs in Grafana.
+  - Explore distributed tracing with Jaeger or Tempo for deeper insights into request flows.
 
 ---
 
@@ -572,34 +692,41 @@ Telemetry is a cornerstone of modern cloud-native operations, empowering teams t
 
 ## Module 4: Custom Operator Lab (Hello Operator)
 
+
 ### Overview
-This module introduces Kubernetes operators by building and deploying a custom operator using Python and Kopf.
+This module introduces Kubernetes operators by building and deploying a custom operator using Python and Kopf. Operators are controllers that automate complex tasks in Kubernetes, such as managing stateful applications, backups, upgrades, and custom workflows. They extend Kubernetes with domain-specific logic and enable powerful automation.
+
+#### Why Kopf?
+Kopf is a Python framework that makes writing Kubernetes operators simple and approachable for developers familiar with Python. It abstracts away much of the boilerplate required for custom controllers, allowing you to focus on your business logic.
+Note: While Kopf makes operator development accessible in Python, the majority of production-grade Kubernetes operators are written in Go, which is the native language of Kubernetes and its ecosystem. Python is great for learning and rapid prototyping, but Go is preferred for performance, maintainability, and community support in large-scale deployments.
 
 #### What is the Hello Operator?
-The Hello operator is a simple, educational Kubernetes operator written in Python using the Kopf framework. 
+The Hello operator is a simple, educational Kubernetes operator written in Python using the Kopf framework. It watches for custom resources of type `Hello` in your cluster, which clearly is not a default Kubernetes resource. When a `Hello` resource is created, updated, or deleted, the operator automatically reconciles the desired state by creating, updating, or removing a corresponding ConfigMap containing a personalized greeting message.
 
-It watches for custom resources of type `Hello` in your cluster. 
-
-When a `Hello` resource is created, updated, or deleted, the operator automatically reconciles the desired state by creating, updating, or removing a corresponding ConfigMap containing a personalized greeting message. The operator demonstrates:
+This operator demonstrates:
 - How to react to Kubernetes resource events (create, update, delete)
 - How to implement reconciliation logic
-- How to use RBAC for secure operation
+- How to use RBAC for secure operation (minimal permissions for demo purposes)
 - How to package and deploy an operator as a container with Helm
 
-This lab provides a hands-on introduction to the operator pattern and automation in Kubernetes.
+This lab provides a hands-on introduction to the operator pattern and automation in Kubernetes, showing how you can extend the platform with custom controllers.
 
 ### Learning Objectives
-- Understand the operator pattern in Kubernetes
-- Deploy the operator as a container
-- Use Helm to install the operator and manage CRDs
+- Understand the operator pattern in Kubernetes and its real-world applications
+- Deploy the operator as a pod and manage Custom Resource Definitions (CRDs) using Helm
+- Work with the Custom Resources (CR) and see the reconciliation loop
 
 ### Lab Steps
+
 
 #### 1. Install the Operator with Helm
 ```bash
 helm install hello-operator operator/helm-hello-operator
 ```
 *This will also apply the CRD automatically.*
+
+> **What is a CRD?**
+> A Custom Resource Definition (CRD) extends the Kubernetes API to allow you to create and manage new resource types, such as `Hello`. The operator watches for these resources and acts on them.
 
 #### 2. Create a Custom Resource
 ```bash
@@ -610,29 +737,59 @@ kubectl apply -f operator/hello-francesco.yaml
 Check the operator pod:
 ```bash
 kubectl get pods -l app=hello-operator
+```
+
+Read the operator logs to see the reconciliation loop happening for the Hello resource created above:
+```bash
 kubectl logs $(kubectl get pods -l app=hello-operator -o jsonpath="{.items[0].metadata.name}")
 ```
+
 Check the ConfigMap created by the operator:
 ```bash
 kubectl get configmap hello-francesco -o yaml
 ```
+
 Check the custom resource:
 ```bash
 kubectl get hello
 ```
 
-Try updating or deleting the Hello resource and observe reconciliation.
+#### 4. Update the Hello resource (or add another Hello resource) and observe reconciliation.
+Copy the custom resource:
+```bash
+cp operator/hello-francesco.yaml operator/hello-$USER.yaml
+# Modify operator/hello-$USER.yaml
+kubectl apply -f operator/hello-$USER.yaml
+```
 
-#### 4. Clean Up
+Check operator logs, ConfigMap and the custom resource as per Step 3.
+
+#### 5. Delete the Hello resource and observe reconciliation.
+```bash
+kubectl delete hellos.unusualfor.com --all
+```
+
+Check operator logs, ConfigMap and the custom resource as per Step 3.
+
+#### 6. Clean Up
 To remove the operator and all resources:
 ```bash
 helm uninstall hello-operator
 kubectl delete crd hellos.unusualfor.com
 ```
 
+**Troubleshooting tips:**
+- If the operator pod does not start, check its logs and events:
+	```bash
+	kubectl logs <pod-name>
+	kubectl describe pod <pod-name>
+	```
+- If the ConfigMap is not created, ensure the operator is running and the custom resource was applied correctly.
+- If you see RBAC errors, review the operator’s Role and RoleBinding for necessary permissions.
+
 ### Operator Recap: Why Operators Matter
 
-*Kubernetes operators automate the management of complex applications and resources by extending the Kubernetes API with custom controllers. Operators continuously reconcile the desired state (as defined in custom resources) with the actual state in the cluster.*
+Kubernetes operators automate the management of complex applications and resources by extending the Kubernetes API with custom controllers. Operators continuously reconcile the desired state (as defined in custom resources) with the actual state in the cluster.
 
 **Key Benefits:**
 - Automate routine tasks (deploy, update, backup, scale, heal)
@@ -657,117 +814,122 @@ By building and deploying a custom operator, you learned how to:
 - Secure the operator with RBAC
 - Observe automated resource management in action
 
-Operators are a powerful pattern for cloud-native automation and are widely used in production Kubernetes environments.
+Operators are a powerful pattern for cloud-native automation and are widely used in production Kubernetes environments. By completing this module, you learned how to extend Kubernetes with custom automation using operators and CRDs.
 
 ---
 
 ## Assignment: Telemetry
 
-Objective: Deploy a custom telemetry app, ensure Prometheus scrapes its metrics, and create a Grafana dashboard.
 
-Steps:
+**Objective:** Deploy a custom telemetry app, ensure Prometheus scrapes its metrics, and create a Grafana dashboard for visualization and analysis.
+
+**Prerequisites:**
+- Prometheus and Grafana are installed and running as per [Module 3](#module-3-telemetry)
+- You have access to your cluster via `kubectl` and Helm
+
+**Steps:**
 
 1. **Deploy the telemetry app using Helm in the assignment namespace:**
-   ```bash
-   helm upgrade --install assignment-app ./assignment/helm/ -n assignment --create-namespace
-   ```
+	 - This command installs or upgrades the telemetry app using the provided Helm chart, creating the `assignment` namespace if it does not exist.
+	 ```bash
+	 helm upgrade --install assignment-app ./assignment/helm/ -n assignment --create-namespace
+	 ```
+
 2. **Verify the app is running in the assignment namespace:**
-   ```bash
-   kubectl get pods -n assignment -l app=demo-app
-   kubectl get svc -n assignment demo-app
-   ```
+	 - Check that the pod and service for the demo app are present and running.
+	 ```bash
+	 kubectl get pods -n assignment -l app=demo-app
+	 kubectl get svc -n assignment demo-app
+	 ```
+
 3. **Test metrics endpoint:**
-   - Retrieve the ClusterIP of the demo-app service:
-     ```bash
-     CLUSTER_IP=$(kubectl get svc -n assignment demo-app -o jsonpath='{.spec.clusterIP}')
-     ```
-   - Then, from any pod in the cluster (or using a tool like `kubectl run`), you can access the metrics endpoint:
-     ```bash
-     curl http://<CLUSTER_IP>:8000/metrics
-     ```
-   - You should see Prometheus metrics output.
+	 - Retrieve the ClusterIP of the demo-app service:
+		 ```bash
+		 CLUSTER_IP=$(kubectl get svc -n assignment demo-app -o jsonpath='{.spec.clusterIP}')
+		 ```
+	 - Access the metrics endpoint exposed by the app:
+		 ```bash
+		 curl http://$CLUSTER_IP:8000/metrics
+		 ```
+	 - You should see Prometheus-formatted metrics output. If not, check the pod logs and service configuration.
 
-5. **Check Prometheus targets:**
-   - Prometheus is exposed via NodePort. Retrieve the Prometheus server URL:
-     ```bash
-     export NODE_PORT=$(kubectl get --namespace default -o jsonpath="{.spec.ports[0].nodePort}" services prometheus-server)
-     export NODE_IP=$(kubectl get nodes --namespace default -o jsonpath="{.items[0].status.addresses[0].address}")
-     echo "Prometheus UI: http://$NODE_IP:$NODE_PORT"
-     ```
-   - Query targets:
-     ```bash
-     curl http://$NODE_IP:$NODE_PORT/api/v1/targets | jq .
-     ```
-   - Confirm your app appears in `activeTargets` and is `up`.
-7. **Build a dashboard in Grafana:**
-   - After confirming metrics are available, create a custom dashboard or panel in Grafana using the metrics exposed by your app (e.g., request count, latency, memory usage).
-   - Example tasks:
-     - Visualize request rate over time
-     - Show average or maximum latency
-     - Display current memory usage
-   - Use Prometheus as the data source and select your app's metrics for visualization.
+4. **Check Prometheus targets:**
+	 - Prometheus is exposed via NodePort. Retrieve the Prometheus server URL:
+		 ```bash
+		 export PNODE_PORT=$(kubectl get --namespace default -o jsonpath="{.spec.ports[0].nodePort}" services prometheus-server)
+		 export PNODE_IP=$(kubectl get nodes --namespace default -o jsonpath="{.items[0].status.addresses[0].address}")
+		 echo "Prometheus UI: http://$PNODE_IP:$PNODE_PORT"
+		 ```
+	 - Query Prometheus targets to confirm your app appears in `activeTargets` and is `up`:
+		 ```bash
+		 curl http://$PNODE_IP:$PNODE_PORT/api/v1/targets | jq .
+		 ```
+		 or just access http://$PNODE_IP:$PNODE_PORT/targets
+	 - If your app does not appear or is not `up`, check the app's service annotations and Prometheus scrape configuration.
 
-### Clean Up
+5. **Build a dashboard in Grafana:**
+	 - After confirming metrics are available, create a custom dashboard or panel in Grafana using the metrics exposed by your app (e.g., request count, latency, memory usage).
+	 - Example tasks:
+		 - Visualize request rate over time
+		 - Show average or maximum latency
+		 - Display current memory usage
+	 - Use Prometheus as the data source and select your app's metrics for visualization.
+
+**Troubleshooting tips:**
+- If the app pod is not running, check its logs and events:
+	```bash
+	kubectl logs <pod-name> -n assignment
+	kubectl describe pod <pod-name> -n assignment
+	```
+- If metrics are not exposed, verify the app's configuration and that the `/metrics` endpoint is reachable.
+- If Prometheus does not scrape the app, check service annotations and Prometheus configuration.
+- If Grafana does not display metrics, verify the data source and query settings.
+
+**Clean Up:**
+To remove the assignment app and its resources:
 ```bash
 helm uninstall assignment-app -n assignment
 ```
 
 ---
 
-## Quick Environment Setup and Reset
-
-To automate your lab environment setup and avoid common issues, use the unified script:
-
-1. **Run the setup:**
-   ```bash
-   ./k0s-lab.sh setup
-   ```
-   This will stop Docker, clean up iptables, install and start k0s, and configure your kubeconfig.
-
-2. **If you need to reset and start fresh:**
-   ```bash
-   ./k0s-lab.sh reset
-   ./k0s-lab.sh setup
-   ```
-   This will clean up any previous state and start fresh.
-
-> The script requires sudo privileges and should be run from the repository root.
-
----
-
 ## Resources
 
+
 ### Official Documentation & Resources
-- [Kubernetes](https://kubernetes.io/docs/)
-- [k0s](https://docs.k0sproject.io/latest/)
-- [Helm](https://helm.sh/docs/)
-- [Prometheus](https://prometheus.io/docs/introduction/overview/)
-- [Grafana](https://grafana.com/docs/)
-- [Istio](https://istio.io/latest/docs/)
-- [Kiali](https://kiali.io/)
+- [Kubernetes Documentation](https://kubernetes.io/docs/) — Official docs for all Kubernetes concepts and APIs
+- [k0s Documentation](https://docs.k0sproject.io/latest/) — Lightweight Kubernetes distribution used in this course
+- [Helm Documentation](https://helm.sh/docs/) — Kubernetes package manager and chart reference
+- [Prometheus Documentation](https://prometheus.io/docs/introduction/overview/) — Metrics collection and monitoring
+- [Grafana Documentation](https://grafana.com/docs/) — Visualization and dashboarding platform
+- [Istio Documentation](https://istio.io/latest/docs/) — Service mesh for traffic management, security, and observability
+- [Kiali Documentation](https://kiali.io/) — Istio observability and service mesh visualization
 
 ### Recommended Reading
-- [Kubernetes Patterns](https://www.oreilly.com/library/view/kubernetes-patterns/9781492050285/)
-- [Istio Up & Running](https://www.oreilly.com/library/view/istio-up-and/9781492043775/)
+- [Kubernetes Patterns](https://www.oreilly.com/library/view/kubernetes-patterns/9781492050285/) — Design patterns for cloud-native applications
+- [Istio Up & Running](https://www.oreilly.com/library/view/istio-up-and/9781492043775/) — Practical guide to Istio service mesh
 
-### Community Forums
-- [Kubernetes Slack](https://slack.k8s.io/)
-- [Istio Discuss](https://discuss.istio.io/)
-- [Kiali Community](https://kiali.io/community/)
+### Community Forums & Support
+- [Kubernetes Slack](https://slack.k8s.io/) — Community chat and support
+- [Istio Discuss](https://discuss.istio.io/) — Istio Q&A and community forum
+- [Kiali Community](https://kiali.io/community/) — Kiali user and developer community
 
 ---
 
 ## Contributing
 
+
 ### How to Contribute
 All contributions to improve this class material are welcome! You can:
 - Submit pull requests for corrections, enhancements, or new modules
 - Report issues or suggest improvements via GitHub Issues
-- Share feedback and ideas in the community forums
+- Share feedback and ideas in any form
 
 ### Reporting Issues
-If you find any errors or have suggestions, please open an issue in this repository or contact the maintainer.
+If you find any errors or have suggestions, please open an issue in this repository or contact the maintainer. Your feedback helps make this course better for everyone.
 
 ---
 
-Thank you for participating in the Advanced Kubernetes class. Continue exploring, experimenting, and contributing to the Kubernetes ecosystem!
+Thank you for participating in the Advanced Kubernetes class! Keep exploring, experimenting, and contributing to the Kubernetes ecosystem. Your curiosity and input drive the community forward.
+
+---

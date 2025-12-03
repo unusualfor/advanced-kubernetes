@@ -13,7 +13,7 @@ spec:
         app: demo-app
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: {{ .Values.service.port }}
+        prometheus.io/port: "{{ .Values.service.port }}"
     spec:
       containers:
         - name: demo-app
