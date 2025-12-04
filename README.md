@@ -186,14 +186,14 @@ curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4 | VERIF
 
 > **Note**: *VERIFY_CHECKSUM=false* is set because most WSL instances do not have complete openssl suites installed. In a production environment, *VERIFY_CHECKSUM* must be set to true (i.e. default option for the Helm install script).
 If you are curious, you can try forcing *VERIFY_CHECKSUM=true* and in case the installation fails because of openssl, install it with:
-```bash
-# Debian / Ubuntu
-apt update
-apt install openssl -y
+	```bash
+	# Debian / Ubuntu
+	apt update
+	apt install openssl -y
 
-# Red Hat / Fedora / CentOS
-dnf install openssl -y
-```
+	# Red Hat / Fedora / CentOS
+	dnf install openssl -y
+	```
 
 After installation, verify with:
 ```bash
@@ -254,7 +254,7 @@ You can customize deployments by editing `values.yaml`, passing parameters with 
 - Objective: Take the custom Helm chart and change the title of the webpage. You should be able to do it by just changing two lines.
 - Steps:
 	1. Modify *helm/values.yaml* to include a new line *customPage*. Use *customText* as an example.
-	3. Customize the *templates/configmap.yaml* by including the variable *customPage* between *<title>* and *</title>*. Use the line with *<h1>{{ .Values.customText }}</h1>* as an example.
+	3. Customize the *templates/configmap.yaml* by including the variable *customPage* between *<title>* and *</title>*. Use the line with `<h1>{{ .Values.customText }}</h1>` as an example.
 	3. Install and test the chart with
 		```bash
 		helm install goodbye-app helm/ --set customPage="Goodbye!" --set customText="goodbye!" -n goodbye-app --create-namespace
@@ -268,6 +268,9 @@ You can customize deployments by editing `values.yaml`, passing parameters with 
 		helm uninstall -n ciao-app ciao-app
 		helm uninstall -n hello-app hello-app
 		helm uninstall -n goodbye-app goodbye-app
+		kubectl delete ns ciao-app
+		kubectl delete ns hello-app
+		kubectl delete ns goodbye-app
 		```
 	2. Verify resource removal
 
@@ -391,15 +394,12 @@ This is a revised example out of https://istio.io/latest/docs/setup/install/mult
 	  ```
 
   3. **Verify sidecar injection:**
-	  - Each pod should have two containers: the application and the `istio-proxy` (Envoy sidecar). To check:
-	  ```bash
-	  kubectl describe pod -n demo | grep -A 5 "Containers:"
-	  ```
-	  - You should see both the app container and `istio-proxy` listed. Alternatively, use:
-	  ```bash
-	  kubectl get pods -n demo -o jsonpath='{.items[*].spec.containers[*].name}'
-	  ```
-	  - In the Kiali UI, the application will appear under the "Applications" tab once pods are running.
+	- Each pod should have two containers: the application and the `istio-proxy` (Envoy sidecar). To reliably list all container names for each pod (including injected sidecars), use the following syntax. There are better ways of doing this, especially with JSONpath. 
+	```bash
+	kubectl describe pod -n demo | grep -E "container.*istio-proxy"
+	```
+
+	- In the Kiali UI, the application will appear under the "Applications" tab once pods are running.
 
   4. **Generate traffic for observability:**
 	  - Open the Traffic Graph in Kiali and select the *demo* namespace
@@ -410,11 +410,11 @@ This is a revised example out of https://istio.io/latest/docs/setup/install/mult
 	  - Kiali UI will now show the ongoing traffic and service interactions.
 
   **Troubleshooting tips:**
-  - If pods do not have the `istio-proxy` sidecar, ensure the namespace is labeled correctly and that Istio's sidecar injector webhook is running (`kubectl get pods -n istio-system | grep injector`).
   - If pods are stuck or not starting, check logs with `kubectl logs <pod-name> -n demo` and describe events with `kubectl describe pod <pod-name> -n demo`.
   - If Kiali UI does not show the app, verify that traffic is being generated and pods are healthy.
 
 #### Exercise 3: Security
+
 
 - Objective: Enable mutual TLS (mTLS) between services for secure communication
 - Steps:
@@ -471,7 +471,10 @@ This is a simplified example taken from https://kiali.io/docs/tutorials/travels/
 	  - Once the pods are running and traffic is generated, open the Kiali dashboard and explore the Traffic Graph and Traces tabs. You should see multiple services interacting, with traces showing request flows across namespaces.
 
   4. **Check mTLS status:**
-	  - In Kiali, verify if mTLS is enabled by looking for the lock icon on service links. This shoudl be enabled by default given that the PeerAuthentication resource applied in the previous exercise was applied globally and not restricted to a single namespace.
+	  - In Kiali, verify if mTLS is enabled by looking for the lock icon on service links. This should be enabled by default given that the PeerAuthentication resource applied in the previous exercise was applied globally and not restricted to a single namespace.
+
+  5. **Inspect available data:**
+	  - Inspect Traffic/Flags/Hosts/etc data for each HTTP and TCP connection.
 
   **Troubleshooting tips:**
   - If services do not appear in Kiali, check that all namespaces are labeled for injection and pods are healthy.
@@ -605,7 +608,11 @@ If you cannot access the UIs, check that your cluster nodes are reachable and th
 
   2. **Ensure Prometheus Is Scraping Cluster Metrics**
 	  - Prometheus should be configured to scrape metrics from Kubernetes components. If you installed Prometheus using the official Helm chart, default scrape configs are included and you do not need to do anything.
-	  - To verify, open the Prometheus UI and check the "Targets" page (or simply, hit http://$PNODE_IP:$PNODE_PORT/targets). All expected Kubernetes endpoints should be listed as "up".
+	  - To verify, open the Prometheus UI and check the "Targets" page (or simply, hit the following). 
+	  All expected Kubernetes endpoints should be listed as "up".
+	  	```bash
+	  	echo "Prometheus UI - Targets: http://$PNODE_IP:$PNODE_PORT/targets"
+	  	```
 
   3. **Access Prometheus and Grafana UIs**
 	  - Use the commands above to retrieve the NodePort URLs. Open the Grafana URL in your browser.
@@ -728,17 +735,23 @@ helm install hello-operator operator/helm-hello-operator
 > **What is a CRD?**
 > A Custom Resource Definition (CRD) extends the Kubernetes API to allow you to create and manage new resource types, such as `Hello`. The operator watches for these resources and acts on them.
 
-#### 2. Create a Custom Resource
-```bash
-kubectl apply -f operator/hello-francesco.yaml
-```
-
-#### 3. Verify Operator Pod and Functionality
+#### 2. Verify Operator Pod and Functionality
 Check the operator pod:
 ```bash
 kubectl get pods -l app=hello-operator
 ```
 
+#### 3. Create a Custom Resource
+```bash
+kubectl apply -f operator/hello-francesco.yaml
+```
+
+Check the custom resource you just created:
+```bash
+kubectl get hello
+```
+
+#### 4. Check operator reconciliation cycle
 Read the operator logs to see the reconciliation loop happening for the Hello resource created above:
 ```bash
 kubectl logs $(kubectl get pods -l app=hello-operator -o jsonpath="{.items[0].metadata.name}")
@@ -747,11 +760,6 @@ kubectl logs $(kubectl get pods -l app=hello-operator -o jsonpath="{.items[0].me
 Check the ConfigMap created by the operator:
 ```bash
 kubectl get configmap hello-francesco -o yaml
-```
-
-Check the custom resource:
-```bash
-kubectl get hello
 ```
 
 #### 4. Update the Hello resource (or add another Hello resource) and observe reconciliation.
@@ -763,6 +771,7 @@ kubectl apply -f operator/hello-$USER.yaml
 ```
 
 Check operator logs, ConfigMap and the custom resource as per Step 3.
+You should now see that the Hello resource creation resulted in another reconciliation cycle.
 
 #### 5. Delete the Hello resource and observe reconciliation.
 ```bash
@@ -770,6 +779,7 @@ kubectl delete hellos.unusualfor.com --all
 ```
 
 Check operator logs, ConfigMap and the custom resource as per Step 3.
+You should now see that the Hello resource deletion resulted in another reconciliation cycle.
 
 #### 6. Clean Up
 To remove the operator and all resources:
@@ -862,18 +872,34 @@ Operators are a powerful pattern for cloud-native automation and are widely used
 		 ```
 	 - Query Prometheus targets to confirm your app appears in `activeTargets` and is `up`:
 		 ```bash
-		 curl http://$PNODE_IP:$PNODE_PORT/api/v1/targets | jq .
+		 curl http://$PNODE_IP:$PNODE_PORT/api/v1/targets | jq . | grep assignment
 		 ```
-		 or just access http://$PNODE_IP:$PNODE_PORT/targets
+
+		 or just access the following and filter per *assignment*:
+		 
+		 ```bash
+		 echo "Prometheus UI - Targets: http://$PNODE_IP:$PNODE_PORT/targets"
+		 ```
+
 	 - If your app does not appear or is not `up`, check the app's service annotations and Prometheus scrape configuration.
 
 5. **Build a dashboard in Grafana:**
 	 - After confirming metrics are available, create a custom dashboard or panel in Grafana using the metrics exposed by your app (e.g., request count, latency, memory usage).
+	 Check again with 
+	 ```bash
+	 CLUSTER_IP=$(kubectl get svc -n assignment demo-app -o jsonpath='{.spec.clusterIP}')
+	 curl http://$CLUSTER_IP:8000/metrics
+	 ```
+	 which are the available metrics and use them appropriately (hint: they all start with *demo_app*). 
+	 
 	 - Example tasks:
 		 - Visualize request rate over time
 		 - Show average or maximum latency
 		 - Display current memory usage
+
 	 - Use Prometheus as the data source and select your app's metrics for visualization.
+
+	 - Make sure to create multiple panels and, for each panel itself try to relate some metrics together (e.g. how many requests were created and which was the request latency, shown in the same panel).
 
 **Troubleshooting tips:**
 - If the app pod is not running, check its logs and events:
