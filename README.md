@@ -840,9 +840,9 @@ Operators are a powerful pattern for cloud-native automation and are widely used
 **Steps:**
 
 1. **Deploy the telemetry app using Helm in the assignment namespace:**
-	 - This command installs or upgrades the telemetry app using the provided Helm chart, creating the `assignment` namespace if it does not exist.
+	 - This command installs the telemetry app using the provided Helm chart, creating the `assignment` namespace if it does not exist.
 	 ```bash
-	 helm upgrade --install assignment-app ./assignment/helm/ -n assignment --create-namespace
+	 helm install assignment-app oci://ghcr.io/unusualfor/demo-app -n assignment --create-namespace
 	 ```
 
 2. **Verify the app is running in the assignment namespace:**
