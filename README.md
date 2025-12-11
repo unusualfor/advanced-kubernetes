@@ -185,15 +185,9 @@ curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4 | VERIF
 ```
 
 > **Note**: *VERIFY_CHECKSUM=false* is set because most WSL instances do not have complete openssl suites installed. In a production environment, *VERIFY_CHECKSUM* must be set to true (i.e. default option for the Helm install script).
-If you are curious, you can try forcing *VERIFY_CHECKSUM=true* and in case the installation fails because of openssl, install it with:
-	```bash
-	# Debian / Ubuntu
-	apt update
-	apt install openssl -y
-
-	# Red Hat / Fedora / CentOS
-	dnf install openssl -y
-	```
+If you are curious, you can try forcing *VERIFY_CHECKSUM=true* and in case the installation fails because of openssl, install it with the following:
+	- Debian / Ubuntu - ```apt update && apt install openssl -y``` 
+	- Red Hat / Fedora / CentOS - ```dnf install openssl -y```
 
 After installation, verify with:
 ```bash

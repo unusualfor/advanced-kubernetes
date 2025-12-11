@@ -70,7 +70,7 @@ function remove_k0s_data() {
   echo "Stopping k0scontroller systemd service..."
   sudo systemctl stop k0scontroller || true
   echo "Removing k0s data..."
-  sudo rm -rf /var/lib/k0s/kubelet/pods/* /etc/k0s/* /var/log/k0s/*
+  sudo rm -rf /var/lib/k0s/kubelet/pods/* /etc/k0s/* /var/log/k0s/* /etc/cni/net.d/* 
   sudo k0s stop || true
   echo ""
 }
