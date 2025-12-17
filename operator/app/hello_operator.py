@@ -3,7 +3,11 @@ import kubernetes.client as k8s
 
 def configmap_body(name, namespace, greeting):
     return k8s.V1ConfigMap(
-        metadata=k8s.V1ObjectMeta(name=f"hello-{name}", namespace=namespace),
+        metadata=k8s.V1ObjectMeta(
+            name=f"hello-{name}",
+            namespace=namespace,
+            labels={"app": "hello-operator"}
+        ),
         data={"greeting": greeting}
     )
 

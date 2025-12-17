@@ -65,7 +65,7 @@ Each module includes:
 - Debian/Ubuntu
 - SUSE/openSUSE
 - Red Hat/CentOS/Fedora
-- Windows 10/11 with WSL2
+- Windows 10/11 with WSL2 - ensure systemd is enabled on the WSL distro
 
 ---
 
@@ -178,6 +178,8 @@ You can customize deployments by editing `values.yaml`, passing parameters with 
 	3. Install and test the chart with
 		```bash
 		helm install goodbye-app helm/ --set customPage="Goodbye!" --set customText="goodbye!" -n goodbye-app --create-namespace
+		goodbyeIP=$(kubectl get po -n goodbye-app -o jsonpath="{.items[*].status.podIP}")
+	  	curl $goodbyeIP
 		```
 
 #### Uninstall and Cleanup
@@ -522,8 +524,8 @@ If you cannot access the UIs, check that your cluster nodes are reachable and th
 - Objective: Configure Prometheus to collect metrics from your Kubernetes cluster and visualize them in Grafana using ready-made dashboards.
 - Steps:
   1. **Prerequisites**
-	  - Prometheus and Grafana are installed (see [Module 2](#module-2-istio)).
-	  - You have access to your cluster via `kubectl` (see [Kubernetes Distribution: k0s](#kubernetes-distribution-k0s)).
+	  - Prometheus and Grafana are installed (see [Exercise 1](#exercise-1-installing-prometheus-and-grafana)).
+	  - You have access to your cluster via `kubectl`.
 	  - Helm is installed and configured (see [Module 1](#module-1-helm)).
 
   2. **Ensure Prometheus Is Scraping Cluster Metrics**
@@ -679,7 +681,7 @@ kubectl logs $(kubectl get pods -l app=hello-operator -o jsonpath="{.items[0].me
 
 Check the ConfigMap created by the operator:
 ```bash
-kubectl get configmap hello-francesco -o yaml
+kubectl get configmap -l app=hello-operator -o yaml
 ```
 
 #### 4. Update the Hello resource (or add another Hello resource) and observe reconciliation.
