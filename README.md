@@ -3,14 +3,14 @@
 ## Table of Contents
 1. [Course Overview](#course-overview)
 2. [Prerequisites](#prerequisites)
-3. [Kubernetes Distribution: k0s](#kubernetes-distribution-k0s)
-4. [Environment Setup](#environment-setup)
-5. [Module 1: Helm](#module-1-helm)
-6. [Module 2: Istio](#module-2-istio)
-7. [Module 3: Telemetry](#module-3-telemetry)
-8. [Module 4: Operators](#module-4-custom-operator-lab-hello-operator)
-9. [Assignment](#assignment-telemetry)
-10. [Resources](#resources)
+3. [Environment Setup](#environment-setup)
+4. [Module 1: Helm](#module-1-helm)
+5. [Module 2: Istio](#module-2-istio)
+6. [Module 3: Telemetry](#module-3-telemetry)
+7. [Module 4: Operators](#module-4-custom-operator-lab-hello-operator)
+8. [Assignment](#assignment-telemetry)
+9. [Resources](#resources)
+10. [Appendix A: Kubernetes Distribution (k0s)](#appendix-a-environment-setup)
 11. [Contributing](#contributing)
 
 ---
@@ -46,13 +46,9 @@ Each module includes:
 - Installation and configuration steps
 - Hands-on labs and exercises
 
-You will use **k0s** as the Kubernetes distribution, which is lightweight and easy to run on various Linux platforms and WSL2.
-
 ---
 
 ## Prerequisites
-
-To get the most out of this class, you should have:
 
 ### Technical Prerequisites
 - Basic understanding of Kubernetes concepts (pods, deployments, services)
@@ -71,45 +67,11 @@ To get the most out of this class, you should have:
 - Red Hat/CentOS/Fedora
 - Windows 10/11 with WSL2
 
-### Preparation Steps
-1. Set up a virtualization environment (e.g., VirtualBox, VMware, KVM) for isolated labs or spin up a WSL instance
-2. Ensure you have administrative (sudo) access on your system
-3. Update your system packages to the latest versions
-4. Install a modern web browser for accessing dashboards
-
----
-
-## Kubernetes Distribution: k0s
-
-### Overview of k0s
-k0s is a modern, lightweight Kubernetes distribution designed for simplicity and flexibility. It is fully conformant, runs as a single binary, and is ideal for labs, edge, and production environments.
-
-**Key features:**
-- Single binary for easy installation and upgrades
-- Minimal system requirements
-- Supports all major Linux distributions and WSL2
-- Built-in support for high availability and multi-node clusters
-
-### Why k0s for this class?
-- Fast setup and minimal configuration
-- Works well on laptops, VMs, and cloud instances
-- Great for learning, prototyping, and real-world deployments
-
----
-
-## Environment Setup
-
-Follow these steps to prepare your environment for the labs:
-
-### Supported Platforms
-- Debian/Ubuntu
-- SUSE/openSUSE
-- Red Hat/CentOS/Fedora
-- Windows 10/11 with WSL2
-
 ---
 
 ### Quick Start: Cloning and Syncing This Repository
+
+> NOTE: This course assumes you have a running Kubernetes distribution. If not, please refer to [Appendix A: Kubernetes Distribution (k0s)](#appendix-a-environment-setup).
 
 To get started with the course materials:
 
@@ -123,42 +85,6 @@ To get started with the course materials:
    git pull
    ```
    Run this command regularly to fetch the latest updates and improvements.
-
-### k0s setup
-
-Depending on the status of your system, you have 3 cases shown below. 
-Please consider which one suits your system better before running.
-
-> The script requires sudo privileges and should be run from the repository root.
-
-#### Case 1 - First install: setup k0s
-
-To automate your lab environment setup and avoid common issues, use the unified script:
-
-**Run the setup:**
-   ```bash
-   ./infra/k0s.sh setup
-   ```
-   This will stop Docker, clean up iptables, install and start k0s, and configure your kubeconfig.
-
-#### Case 2 - Restart k0s after a reboot
-
-> **Note**: To allow co-existance of Docker and k0s in the lab environment, Docker is only temporarily stopped from running and, at system restart, will start again.
-This means that the above script disables k0s from starting at system boot.
-In general, in production environments, only k0s (or Docker) would be installed and start at boot.
-
-```bash
-./infra/k0s.sh restart
-```
-
-#### Case 3 - Reset k0s to start from a clean environment
-
-Should you want to start clean, you can use the below:
-
-   ```bash
-   ./infra/k0s.sh reset
-   ```
-   This will clean up any previous state and start fresh.
 
 ---
 
@@ -947,6 +873,66 @@ All contributions to improve this class material are welcome! You can:
 
 ### Reporting Issues
 If you find any errors or have suggestions, please open an issue in this repository or contact the maintainer. Your feedback helps make this course better for everyone.
+
+---
+
+## Kubernetes Distribution: k0s
+
+### Overview of k0s
+k0s is a modern, lightweight Kubernetes distribution designed for simplicity and flexibility. It is fully conformant, runs as a single binary, and is ideal for labs, edge, and production environments.
+
+**Key features:**
+- Single binary for easy installation and upgrades
+- Minimal system requirements
+- Supports all major Linux distributions and WSL2
+- Built-in support for high availability and multi-node clusters
+
+### Why k0s for this class?
+- Fast setup and minimal configuration
+- Works well on laptops, VMs, and cloud instances
+- Great for learning, prototyping, and real-world deployments
+
+---
+
+## Appendix A: Environment Setup
+
+Follow these steps to prepare your environment for the labs:
+
+### k0s setup
+
+Depending on the status of your system, you have 3 cases shown below. 
+Please consider which one suits your system better before running.
+
+> The script requires sudo privileges and should be run from the repository root.
+
+#### Case 1 - First install: setup k0s
+
+To automate your lab environment setup and avoid common issues, use the unified script:
+
+**Run the setup:**
+   ```bash
+   ./infra/k0s.sh setup
+   ```
+   This will stop Docker, clean up iptables, install and start k0s, and configure your kubeconfig.
+
+#### Case 2 - Restart k0s after a reboot
+
+> **Note**: To allow co-existance of Docker and k0s in the lab environment, Docker is only temporarily stopped from running and, at system restart, will start again.
+This means that the above script disables k0s from starting at system boot.
+In general, in production environments, only k0s (or Docker) would be installed and start at boot.
+
+```bash
+./infra/k0s.sh restart
+```
+
+#### Case 3 - Reset k0s to start from a clean environment
+
+Should you want to start clean, you can use the below:
+
+   ```bash
+   ./infra/k0s.sh reset
+   ```
+   This will clean up any previous state and start fresh.
 
 ---
 
