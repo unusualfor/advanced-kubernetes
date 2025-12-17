@@ -47,6 +47,7 @@ function start_k0s() {
 
 function export_kubeconfig() {
   echo "Exporting kubeconfig..."
+  mkdir -p ~/.kube
   sudo k0s kubeconfig admin > ~/.kube/config
   echo ""
 }
@@ -96,12 +97,49 @@ function reset_k0s() {
   echo ""
 }
 
+function download_kubectl() {
+  # Detect k0s Kubernetes version and download matching kubectl if needed
+  echo "Detecting Kubernetes version from k0s..."
+  K8S_VERSION=$(sudo k0s version)
+  if [ -z "$K8S_VERSION" ]; then
+    # fallback: try to get from kube-apiserver, only if kubectl exists
+    if command -v kubectl &> /dev/null; then
+      K8S_VERSION=$(kubectl version --short | grep 'Server Version' | awk '{print $3}')
+    fi
+  fi
+  if [ -z "$K8S_VERSION" ]; then
+    echo "Could not determine Kubernetes version. Skipping kubectl download."
+    return
+  fi
+  # Remove leading 'v' if present
+  FORMAL_K8S_VERSION=$(echo "$K8S_VERSION" | awk -F '+' '{print $1}')
+  echo "Detected Kubernetes version: $FORMAL_K8S_VERSION"
+  # Check if kubectl is already installed and matches the version
+  if command -v kubectl &> /dev/null; then
+    INSTALLED_KUBECTL_VERSION=$(kubectl version --client --output=json | jq .clientVersion.gitVersion | sed 's/"//g')
+    if [ "$INSTALLED_KUBECTL_VERSION" = "$FORMAL_K8S_VERSION" ]; then
+      echo "kubectl $INSTALLED_KUBECTL_VERSION already installed. Skipping download."
+      return
+    else
+      echo "kubectl version $INSTALLED_KUBECTL_VERSION found, but $FORMAL_K8S_VERSION required. Updating..."
+    fi
+  else
+    echo "kubectl not found. Installing..."
+  fi
+  curl -LO https://dl.k8s.io/release/${FORMAL_K8S_VERSION}/bin/linux/amd64/kubectl
+  chmod +x kubectl
+  sudo mv kubectl /usr/local/bin/kubectl
+  echo "kubectl installed."
+  kubectl version --client
+}
+
 case "$1" in
   setup)
     stop_docker
     clean_iptables
     install_k0s
     start_k0s
+    download_kubectl
     export_kubeconfig
     show_status
     echo "Environment setup complete. You can now use kubectl and proceed with the labs."
@@ -114,6 +152,7 @@ case "$1" in
     sleep 5
     start_k0s
     sleep 5
+    download_kubectl
     export_kubeconfig
     show_status
     echo "k0s and environment reset complete. You can now use kubectl and proceed with the labs."
