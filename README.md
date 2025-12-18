@@ -3,15 +3,15 @@
 ## Table of Contents
 1. [Course Overview](#course-overview)
 2. [Prerequisites](#prerequisites)
-3. [Environment Setup](#environment-setup)
+3. [Quick Start](#quick-start-cloning-and-syncing-this-repository)
 4. [Module 1: Helm](#module-1-helm)
-5. [Module 2: Istio](#module-2-istio)
+5. [Module 2: Istio](#module-2-service-mesh)
 6. [Module 3: Telemetry](#module-3-telemetry)
 7. [Module 4: Operators](#module-4-custom-operator-lab-hello-operator)
 8. [Assignment](#assignment-telemetry)
 9. [Resources](#resources)
-10. [Appendix A: Kubernetes Distribution (k0s)](#appendix-a-environment-setup)
-11. [Contributing](#contributing)
+10. [Contributing](#contributing)
+11. [Appendix A: Kubernetes Distribution (k0s)](#appendix-a-environment-setup) 
 
 ---
 
@@ -69,7 +69,7 @@ Each module includes:
 
 ---
 
-### Quick Start: Cloning and Syncing This Repository
+## Quick Start: Cloning and Syncing This Repository
 
 > NOTE: This course assumes you have a running Kubernetes distribution. If not, please refer to [Appendix A: Kubernetes Distribution (k0s)](#appendix-a-environment-setup).
 
@@ -175,12 +175,15 @@ You can customize deployments by editing `values.yaml`, passing parameters with 
 - Steps:
 	1. Modify *helm/values.yaml* to include a new line *customPage*. Use *customText* as an example.
 	3. Customize the *templates/configmap.yaml* by including the variable *customPage* between *<title>* and *</title>*. Use the line with `<h1>{{ .Values.customText }}</h1>` as an example.
-	3. Install and test the chart with
+	4. Install with
 		```bash
 		helm install goodbye-app helm/ --set customPage="Goodbye!" --set customText="goodbye!" -n goodbye-app --create-namespace
-		goodbyeIP=$(kubectl get po -n goodbye-app -o jsonpath="{.items[*].status.podIP}")
-	  	curl $goodbyeIP
 		```
+	   and verify the applied changes worked with:
+	   ```bash
+	   goodbyeIP=$(kubectl get po -n goodbye-app -o jsonpath="{.items[*].status.podIP}")
+	   curl $goodbyeIP
+	   ```
 
 #### Uninstall and Cleanup
 - Objective: Remove releases and clean up resources
@@ -220,7 +223,6 @@ In telecommunications (telco) environments, Helm is especially valuable. For exa
 ---
 
 ## Module 2: Service Mesh
-
 
 ### Introduction to Istio
 Istio is a popular open-source service mesh that provides advanced traffic management, security, and observability for microservices running in Kubernetes. It enables you to control, secure, and monitor service-to-service communication without modifying application code. Kiali is an observability console for Istio, offering service mesh visualization, traffic flow analysis, and configuration validation.
@@ -316,7 +318,9 @@ This is a revised example out of https://istio.io/latest/docs/setup/install/mult
 	  ```
 
   3. **Verify sidecar injection:**
-	- Each pod should have two containers: the application and the `istio-proxy` (Envoy sidecar). To reliably list all container names for each pod (including injected sidecars), use the following syntax. There are better ways of doing this, especially with JSONpath. 
+	- Each pod should have two containers: the application and the `istio-proxy` (Envoy sidecar). 
+	- The Istio sidecar (Envoy) has been injected automatically! It was not part of the initial application deployed above -> it is possible to see there is no mention of istio-proxy in https://raw.githubusercontent.com/istio/istio/release-1.28/samples/helloworld/helloworld.yaml
+	- To reliably check that all pods in the demo namespace now include the injected Istio sidecars, use the following syntax. There are better ways of doing this, especially with JSONpath. 
 	```bash
 	kubectl describe pod -n demo | grep -E "container.*istio-proxy"
 	```
@@ -393,7 +397,7 @@ This is a simplified example taken from https://kiali.io/docs/tutorials/travels/
 	  - Once the pods are running and traffic is generated, open the Kiali dashboard and explore the Traffic Graph and Traces tabs. You should see multiple services interacting, with traces showing request flows across namespaces.
 
   4. **Check mTLS status:**
-	  - In Kiali, verify if mTLS is enabled by looking for the lock icon on service links. This should be enabled by default given that the PeerAuthentication resource applied in the previous exercise was applied globally and not restricted to a single namespace.
+	  - In Kiali, verify if mTLS is enabled by looking for the lock icon on service links. This should be enabled by default.
 
   5. **Inspect available data:**
 	  - Inspect Traffic/Flags/Hosts/etc data for each HTTP and TCP connection.
@@ -405,7 +409,7 @@ This is a simplified example taken from https://kiali.io/docs/tutorials/travels/
 
 ---
 
-## Istio Cleanup
+### Istio Cleanup
 
 To remove the sample applications and namespaces deployed for Istio labs, run:
 
@@ -422,6 +426,13 @@ kubectl delete namespace travel-control
 These commands may take a few minutes to complete, as Kubernetes will clean up all resources in the specified namespaces. You can safely press CTRL+C after a few seconds—the deletion request will continue in the background.
 
 This cleanup step ensures your cluster is ready for the next exercises and prevents resource conflicts or leftover objects from previous labs.
+
+Should you also want to cleanup Istio, follow these commands:
+```bash
+export PATH="$PWD/istio-1.28.0/bin:$PATH"
+istioctl uninstall --purge
+kubectl delete ns istio-system
+```
 
 ---
 
@@ -812,7 +823,7 @@ Operators are a powerful pattern for cloud-native automation and are widely used
 	 CLUSTER_IP=$(kubectl get svc -n assignment demo-app -o jsonpath='{.spec.clusterIP}')
 	 curl http://$CLUSTER_IP:8000/metrics
 	 ```
-	 which are the available metrics and use them appropriately (hint: they all start with *demo_app*). 
+	 which are the available metrics and use them appropriately (hint: some of them start with *demo_app*). 
 	 
 	 - Example tasks:
 		 - Visualize request rate over time
@@ -878,9 +889,11 @@ If you find any errors or have suggestions, please open an issue in this reposit
 
 ---
 
-## Kubernetes Distribution: k0s
+## Appendix A: Environment Setup
 
-### Overview of k0s
+### Kubernetes Distribution: k0s
+
+#### Overview of k0s
 k0s is a modern, lightweight Kubernetes distribution designed for simplicity and flexibility. It is fully conformant, runs as a single binary, and is ideal for labs, edge, and production environments.
 
 **Key features:**
@@ -889,14 +902,12 @@ k0s is a modern, lightweight Kubernetes distribution designed for simplicity and
 - Supports all major Linux distributions and WSL2
 - Built-in support for high availability and multi-node clusters
 
-### Why k0s for this class?
+#### Why k0s for this class?
 - Fast setup and minimal configuration
 - Works well on laptops, VMs, and cloud instances
 - Great for learning, prototyping, and real-world deployments
 
 ---
-
-## Appendix A: Environment Setup
 
 Follow these steps to prepare your environment for the labs:
 
